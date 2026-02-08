@@ -33,7 +33,11 @@ YOUR_USERNAME ALL = NOPASSWD: /opt/homebrew/bin/openfortivpn
 
 ### 3. Install the app
 
+#### DMG version
+
 Download the latest `.dmg` from [Releases](../../releases), open it, and drag **OpenFortiMac** to your Applications folder.
+
+#### Build yourself
 
 To build from source instead (Xcode required):
 
@@ -87,9 +91,9 @@ The `trusted_cert` field is optional. If omitted, the app uses `--trusted-cert=a
 
 **"openfortivpn not found"** — Check the binary path in Settings → General. Run `which openfortivpn` to find yours.
 
-**"sudo: a password is required"** — The sudoers entry is missing or incorrect. See step 3 above.
+**"sudo: a password is required"** — The sudoers entry is missing or incorrect. See step 2 above.
 
-**Connection fails** — Open Settings → Log tab for details. You can test manually with `sudo openfortivpn vpn.server.com:443 -u username`.
+**Connection fails** — Open Settings → Log tab for details. 
 
 ## Uninstall
 
