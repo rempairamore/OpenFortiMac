@@ -1,0 +1,22 @@
+# Build
+build/
+DerivedData/
+*.dmg
+
+# Xcode
+*.xcuserdata
+*.xcworkspace
+xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+*.moved-aside
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Config file
+config.json
