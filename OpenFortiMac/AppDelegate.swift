@@ -43,7 +43,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let menu = NSMenu()
         
         // Status
-        let statusMenuItem = NSMenuItem(title: statusTitle(), action: nil, keyEquivalent: "")
+        let statusMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        statusMenuItem.attributedTitle = statusAttributedTitle()
         statusMenuItem.isEnabled = false
         menu.addItem(statusMenuItem)
         
@@ -66,12 +67,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     keyEquivalent: ""
                 )
                 serverItem.tag = index
-                serverItem.target = self
                 
-                if case .connected(let connectedName) = vpnManager.state, connectedName == server.name {
-                    serverItem.state = .on
+                if isDisconnected {
+                    serverItem.target = self
+                    serverItem.action = #selector(connectToServer(_:))
+                } else {
+                    serverItem.target = nil
+                    serverItem.action = nil
+                    if case .connected(let connectedName) = vpnManager.state, connectedName == server.name {
+                        serverItem.state = .on
+                    }
                 }
-                serverItem.isEnabled = isDisconnected
+
                 
                 menu.addItem(serverItem)
             }
@@ -115,6 +122,36 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         case .disconnecting:
             return "● Disconnecting..."
         }
+    }
+    
+    private func statusAttributedTitle() -> NSAttributedString {
+        let dot: String
+        let dotColor: NSColor
+        let text: String
+        
+        switch vpnManager.state {
+        case .disconnected:
+            dot = "● "
+            dotColor = .secondaryLabelColor
+            text = "Disconnected"
+        case .connecting:
+            dot = "● "
+            dotColor = .systemOrange
+            text = "Connecting..."
+        case .connected(let serverName):
+            dot = "● "
+            dotColor = .systemGreen
+            text = "Connected: \(serverName)"
+        case .disconnecting:
+            dot = "● "
+            dotColor = .systemOrange
+            text = "Disconnecting..."
+        }
+        
+        let result = NSMutableAttributedString()
+        result.append(NSAttributedString(string: dot, attributes: [.foregroundColor: dotColor]))
+        result.append(NSAttributedString(string: text, attributes: [.foregroundColor: NSColor.labelColor]))
+        return result
     }
     
     private func updateStatusIcon() {

@@ -8,6 +8,8 @@ struct SettingsView: View {
     @State private var showingAddServer = false
     @State private var showingEditServer = false
     @State private var selectedTab = 0
+    @State private var serverToDelete: VPNServer?
+    @State private var showingDeleteConfirm = false
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -30,13 +32,24 @@ struct SettingsView: View {
                 .tag(2)
         }
         .frame(width: 540, height: 440)
-        .sheet(isPresented: $showingAddServer) {
+        .sheet(isPresented: $showingAddServer, onDismiss: { viewModel.loadServers() }) {
             ServerEditView(viewModel: viewModel, server: nil)
         }
-        .sheet(isPresented: $showingEditServer) {
+        .sheet(isPresented: $showingEditServer, onDismiss: { viewModel.loadServers() }) {
             if let server = selectedServer {
                 ServerEditView(viewModel: viewModel, server: server)
             }
+        }
+        .alert("Delete Server", isPresented: $showingDeleteConfirm, presenting: serverToDelete) { server in
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let index = viewModel.servers.firstIndex(where: { $0.id == server.id }) {
+                    viewModel.deleteServers(at: IndexSet(integer: index))
+                    selectedServer = nil
+                }
+            }
+        } message: { server in
+            Text("Are you sure you want to delete \"\(server.name)\"?")
         }
     }
     
@@ -46,13 +59,30 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             List(selection: $selectedServer) {
                 ForEach(viewModel.servers) { server in
-                    ServerRowView(server: server)
-                        .tag(server)
+                    HStack {
+                        ServerRowView(server: server)
+                        Spacer()
+                        Button(action: {
+                            serverToDelete = server
+                            showingDeleteConfirm = true
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red.opacity(0.7))
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Delete Server")
+                    }
+                    .contentShape(Rectangle())
+                    .tag(server)
+                    .onTapGesture(count: 2) {
+                        selectedServer = server
+                        showingEditServer = true
+                    }
                 }
-                .onDelete(perform: viewModel.deleteServers)
                 .onMove(perform: viewModel.moveServers)
             }
             .listStyle(.inset)
+            .id(viewModel.refreshID)
             
             Divider()
             
@@ -73,19 +103,6 @@ struct SettingsView: View {
                 .buttonStyle(.borderless)
                 .disabled(selectedServer == nil)
                 .help("Edit Server")
-                
-                Button(action: {
-                    if let server = selectedServer,
-                       let index = viewModel.servers.firstIndex(where: { $0.id == server.id }) {
-                        viewModel.deleteServers(at: IndexSet(integer: index))
-                        selectedServer = nil
-                    }
-                }) {
-                    Image(systemName: "minus")
-                }
-                .buttonStyle(.borderless)
-                .disabled(selectedServer == nil)
-                .help("Remove Server")
                 
                 Spacer()
             }
@@ -330,7 +347,6 @@ struct ServerEditView: View {
     private func validate() -> Bool {
         validationError = nil
         
-        // Trim whitespace
         let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedHost.isEmpty || trimmedHost.contains(" ") {
             validationError = "Host cannot be empty or contain spaces"
@@ -352,7 +368,6 @@ struct ServerEditView: View {
             return false
         }
         
-        // Apply trimmed values
         host = trimmedHost
         
         return true
@@ -371,7 +386,6 @@ struct ServerEditView: View {
             id: server?.id
         )
         
-        // Save password to Keychain
         if !password.isEmpty {
             _ = KeychainHelper.save(password: password, for: newServer.id)
         }
@@ -389,6 +403,7 @@ struct ServerEditView: View {
 class SettingsViewModel: ObservableObject {
     @Published var servers: [VPNServer] = []
     @Published var logs: [String] = []
+    @Published var refreshID = UUID()
     @Published var openfortivpnPath: String = "" {
         didSet {
             if oldValue != openfortivpnPath {
@@ -432,6 +447,7 @@ class SettingsViewModel: ObservableObject {
     }
     
     func loadServers() {
+        servers = []
         servers = ConfigManager.shared.config.servers
     }
     
@@ -446,12 +462,14 @@ class SettingsViewModel: ObservableObject {
     func addServer(_ server: VPNServer) {
         servers.append(server)
         saveConfig()
+        refreshID = UUID()
     }
     
     func updateServer(_ oldServer: VPNServer, with newServer: VPNServer) {
         if let index = servers.firstIndex(where: { $0.id == oldServer.id }) {
             servers[index] = newServer
             saveConfig()
+            refreshID = UUID()
         }
     }
     
@@ -461,6 +479,7 @@ class SettingsViewModel: ObservableObject {
         }
         servers.remove(atOffsets: offsets)
         saveConfig()
+        refreshID = UUID()
     }
     
     func moveServers(from source: IndexSet, to destination: Int) {
