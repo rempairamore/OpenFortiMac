@@ -6,6 +6,9 @@ A native macOS menu bar app for managing [OpenFortiVPN](https://github.com/adrie
 
 Passwords are stored in the macOS Keychain.
 
+![Main](/img/screen_01.png)
+![Settings](/img/screen_02.png)
+
 
 ## Installation
 
