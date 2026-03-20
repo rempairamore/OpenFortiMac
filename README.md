@@ -5,7 +5,7 @@
 A native macOS menu bar app for managing [OpenFortiVPN](https://github.com/adrienverge/openfortivpn) connections. Built with Swift and SwiftUI, it sits in your menu bar and lets you connect/disconnect with a single click.
 
 Passwords are stored in the macOS Keychain.
-
+![GIF](/img/openfortimac-video.gif)
 ![Main](/img/screen_01.png)
 ![Settings](/img/screen_02.png)
 
