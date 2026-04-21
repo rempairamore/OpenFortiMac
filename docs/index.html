@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenFortiMac — one-click openfortivpn for macOS</title>
+  <meta name="description" content="Native macOS menu bar app for openfortivpn. No terminal windows, no env vars. Passwords in Keychain, one click to connect." />
+  <meta name="theme-color" content="#0c0e12" />
+
+  <meta property="og:title" content="OpenFortiMac" />
+  <meta property="og:description" content="Native macOS menu bar app for openfortivpn. Passwords in Keychain, one click to connect." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://rempairamore.github.io/OpenFortiMac/" />
+
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ========== TOP BAR ========== -->
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="https://github.com/rempairamore/openfortimac" class="brand" aria-label="OpenFortiMac on GitHub">
+        <img src="assets/icon.png" alt="" width="28" height="28" class="brand-mark" />
+        <span class="brand-name">OpenFortiMac</span>
+      </a>
+      <nav class="topbar-nav">
+        <a href="https://github.com/rempairamore/OpenFortiMac" class="topbar-link">source</a>
+        <a href="https://github.com/rempairamore/OpenFortiMac/releases" class="topbar-link">releases</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ========== HERO ========== -->
+  <section class="hero">
+    <div class="container">
+
+      <div class="prompt">
+        <span class="prompt-sigil">$</span>
+        <span class="prompt-cmd">./openfortimac</span>
+        <span class="caret" aria-hidden="true"></span>
+      </div>
+
+      <h1>
+        <span class="h1-line h1-dim">Fortinet VPN</span>
+        <span class="h1-line h1-accent">without the pain.</span>
+      </h1>
+
+      <p class="subtitle">
+        A native macOS menu bar app for <a href="https://github.com/adrienverge/openfortivpn" class="inline-link">openfortivpn</a>. Saves your password in the Keychain, connects in one click. No terminal windows. No env vars.
+      </p>
+
+      <div class="cta">
+        <a href="https://github.com/rempairamore/OpenFortiMac/releases/latest" class="btn btn-primary">
+          <span class="btn-sigil">&#x2192;</span>
+          Download DMG
+        </a>
+        <a href="https://github.com/rempairamore/OpenFortiMac" class="btn btn-ghost">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.44 9.8 8.2 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.54-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0C17.99 4.39 19 4.7 19 4.7c.65 1.65.24 2.87.12 3.17.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          View source
+        </a>
+      </div>
+
+      <div class="meta">
+        <span class="meta-item"><span class="dot dot-green"></span>macOS 13+</span>
+        <span class="meta-sep">&middot;</span>
+        <span class="meta-item">Swift 5</span>
+        <span class="meta-sep">&middot;</span>
+        <span class="meta-item">GPL-3.0</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========== SCREENSHOT ========== -->
+  <section class="showcase">
+    <div class="container">
+      <figure class="shot">
+        <img src="https://github.com/rempairamore/OpenFortiMac/raw/main/img/openfortimac-video.gif" alt="OpenFortiMac in the macOS menu bar, connecting to a VPN server with one click" />
+      </figure>
+    </div>
+  </section>
+
+  <!-- ========== FEATURES (cli flags style) ========== -->
+  <section class="features">
+    <div class="container">
+
+      <div class="section-head">
+        <div class="section-label"># features</div>
+        <h2>Click once. You're in.</h2>
+        <p>
+            OpenFortiMac is <code>openfortivpn</code> with a menu bar icon and a Keychain entry. You get the good parts of the CLI client without a terminal sitting open all day, and without the weight of the official FortiClient that still manages to forget your password.        </p>
+      </div>
+
+      <dl class="flags reveal">
+
+        <div class="flag">
+          <dt>--one-click-connect</dt>
+          <dd>Click the menu bar icon, pick a server, you're in. Disconnect the same way.</dd>
+        </div>
+
+        <div class="flag">
+          <dt>--keychain-secured</dt>
+          <dd>Passwords live in the macOS Keychain. Not in a config file, not in an env var.</dd>
+        </div>
+
+        <div class="flag">
+          <dt>--multi-profile</dt>
+          <dd>Add as many servers as you need. Switch between them straight from the menu bar.</dd>
+        </div>
+
+      </dl>
+
+    </div>
+  </section>
+
+  <!-- ========== OUTRO ========== -->
+  <section class="outro">
+    <div class="container outro-inner">
+      <div class="section-label"># get it</div>
+      <h2>Free. Open source. Ready to install.</h2>
+      <p>Grab the DMG from the latest release, or build it yourself from source.</p>
+      <div class="cta cta-tight">
+        <a href="https://github.com/rempairamore/OpenFortiMac/releases/latest" class="btn btn-primary">
+          <span class="btn-sigil">&#x2192;</span>
+          Download DMG
+        </a>
+        <a href="https://github.com/rempairamore/OpenFortiMac" class="btn btn-ghost">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.44 9.8 8.2 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.54-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0C17.99 4.39 19 4.7 19 4.7c.65 1.65.24 2.87.12 3.17.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FOOTER ========== -->
+  <footer>
+    <div class="container footer-inner">
+      <div class="footer-col">
+        <div class="prompt prompt-sm">
+          <span class="prompt-sigil">$</span>
+          <span class="prompt-cmd prompt-mute">uname -a</span>
+        </div>
+        <div class="footer-note">
+          OpenFortiMac by rempairamore. Free software under GPL-3.0. Wraps <a href="https://github.com/adrienverge/openfortivpn">openfortivpn</a> by Adrien Verg&eacute;.
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/rempairamore/OpenFortiMac">GitHub</a>
+        <a href="https://github.com/rempairamore/OpenFortiMac/releases">Releases</a>
+        <a href="https://github.com/rempairamore/OpenFortiMac/blob/main/LICENSE">License</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js" defer></script>
+</body>
+</html>
