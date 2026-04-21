@@ -45,7 +45,7 @@ Download the latest `.dmg` from [Releases](../../releases), open it, and drag **
 To build from source instead (Xcode required):
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/OpenFortiMac.git
+git clone https://github.com/rempairamore/OpenFortiMac.git
 cd OpenFortiMac
 chmod +x build_dmg.sh
 ./build_dmg.sh
