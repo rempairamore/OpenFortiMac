@@ -158,7 +158,8 @@ If you followed the manual setup of older versions, also run `sudo rm /etc/sudoe
 ## Releasing
 
 1. Bump `MARKETING_VERSION` in Xcode and add a `## vX.Y.Z` section to `CHANGELOG.md`.
-2. Merge to `main`, then push a tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-3. The [Release workflow](.github/workflows/release.yml) builds a universal DMG, attests its provenance, scans it on VirusTotal, publishes the GitHub release and opens a pull request on [homebrew-tap](https://github.com/rempairamore/homebrew-tap) with the new checksum. Merge that pull request to ship the update to Homebrew users.
+2. Merge to `main`. That's it.
 
-A tag with a suffix (for example `v1.3.1-rc.1`) creates a pre-release and skips Homebrew. The workflow needs two repository secrets: `VIRUSTOTAL_API_KEY` and `HOMEBREW_TAP_TOKEN` (fine-grained token with *Contents* and *Pull requests* write access to `homebrew-tap` only).
+When `main` gets a version that has no tag yet, the [Release workflow](.github/workflows/release.yml) builds a universal DMG, attests its provenance, scans it on VirusTotal, publishes the GitHub release (creating the `vX.Y.Z` tag) and updates [homebrew-tap](https://github.com/rempairamore/homebrew-tap) through a pull request that it merges itself once `brew style` and `brew audit` pass. `brew upgrade` users get the new version right away.
+
+To try a build without shipping it, push a tag with a suffix (for example `v1.3.2-rc.1`): it creates a pre-release and skips Homebrew. The workflow needs two repository secrets: `VIRUSTOTAL_API_KEY` and `HOMEBREW_TAP_TOKEN` (fine-grained token with *Contents* and *Pull requests* write access to `homebrew-tap` only).
