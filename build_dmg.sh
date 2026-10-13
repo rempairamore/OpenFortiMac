@@ -8,6 +8,10 @@ APP_NAME="OpenFortiMac"
 BUILD_DIR="build"
 DMG_DIR="dmg_contents"
 
+# Stable self-signed certificate: keeps the app's identity (and its Keychain access)
+# the same across updates. Without it the build falls back to an ad-hoc signature.
+SIGN_NAME="OpenFortiMac Self-Signed"
+
 # Version comes from MARKETING_VERSION in the Xcode project
 VERSION=$(xcodebuild -project "$APP_NAME.xcodeproj" \
     -scheme "$APP_NAME" \
@@ -58,6 +62,22 @@ fi
 
 echo "✅ Build successful"
 
+# Re-sign with the self-signed certificate when it is on the keychain search list.
+# Looked up by hash because codesign rejects untrusted certificates by name.
+SIGN_IDENTITY="${SIGN_IDENTITY:-$(security find-identity -p codesigning 2>/dev/null \
+    | awk -v name="\"$SIGN_NAME\"" 'index($0, name) {print $2; exit}')}"
+
+if [ -n "$SIGN_IDENTITY" ]; then
+    echo "🔏 Signing with \"$SIGN_NAME\" ($SIGN_IDENTITY)..."
+    codesign --force --options runtime --timestamp=none \
+        --preserve-metadata=entitlements \
+        --sign "$SIGN_IDENTITY" "$APP_PATH"
+else
+    echo "⚠️  \"$SIGN_NAME\" not found in the keychain: ad-hoc signature."
+    echo "    Users will get a Keychain prompt after updating to this build."
+fi
+codesign --verify --deep --strict "$APP_PATH"
+
 # Create DMG
 echo "💿 Creating DMG..."
 
@@ -88,5 +108,6 @@ if [ -n "$GITHUB_OUTPUT" ]; then
         echo "dmg=$DMG_NAME"
         echo "sha256=$SHA256"
         echo "app=$APP_PATH"
+        echo "signed=$([ -n "$SIGN_IDENTITY" ] && echo true || echo false)"
     } >> "$GITHUB_OUTPUT"
 fi

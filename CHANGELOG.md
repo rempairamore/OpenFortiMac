@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.2
+
+### Changed
+- Releases are signed with a stable self-signed certificate ("OpenFortiMac Self-Signed"), so macOS keeps the app's Keychain access across updates instead of asking again after each one. Updating to 1.3.2 asks one last time: choose **Always Allow**.
+
 ## v1.3.1
 
 ### Added
