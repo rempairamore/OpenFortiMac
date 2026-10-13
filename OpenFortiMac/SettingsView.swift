@@ -39,7 +39,7 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.log)
         }
-        .frame(width: 540, height: 440)
+        .frame(width: 540, height: 540)
         .onReceive(NotificationCenter.default.publisher(for: .showSettingsTab)) { notification in
             if let tab = notification.object as? SettingsTab {
                 selectedTab = tab
