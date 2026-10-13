@@ -34,13 +34,20 @@ struct VPNServer: Codable, Identifiable, Hashable {
     let username: String
     let password: String?
     let trustedCert: String?
+    /// SF Symbol shown next to the server name
+    let icon: String?
+    
+    static let defaultIcon = "server.rack"
+    static let iconChoices = ["server.rack", "building.2", "briefcase", "house", "cloud", "lock.shield", "network", "desktopcomputer"]
+    
+    var iconName: String { icon ?? Self.defaultIcon }
     
     enum CodingKeys: String, CodingKey {
-        case id, name, host, port, username, password
+        case id, name, host, port, username, password, icon
         case trustedCert = "trusted_cert"
     }
     
-    init(name: String, host: String, port: Int, username: String, password: String?, trustedCert: String?, id: String? = nil) {
+    init(name: String, host: String, port: Int, username: String, password: String?, trustedCert: String?, icon: String? = nil, id: String? = nil) {
         self.id = id ?? UUID().uuidString
         self.name = name
         self.host = host
@@ -48,6 +55,7 @@ struct VPNServer: Codable, Identifiable, Hashable {
         self.username = username
         self.password = password
         self.trustedCert = trustedCert
+        self.icon = icon
     }
     
     init(from decoder: Decoder) throws {
@@ -59,6 +67,7 @@ struct VPNServer: Codable, Identifiable, Hashable {
         username = try container.decode(String.self, forKey: .username)
         password = try container.decodeIfPresent(String.self, forKey: .password)
         trustedCert = try container.decodeIfPresent(String.self, forKey: .trustedCert)
+        icon = try container.decodeIfPresent(String.self, forKey: .icon)
     }
     
     func hash(into hasher: inout Hasher) {

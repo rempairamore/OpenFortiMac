@@ -42,7 +42,7 @@ OpenFortiMac is not notarized by Apple, so macOS blocks it the first time. Open 
 
 ### Allow openfortivpn to run as root
 
-openfortivpn needs root privileges to create the VPN tunnel. On first launch OpenFortiMac opens **Settings → General → Administrator Permission**: click **Set Up…** and enter your administrator password once.
+openfortivpn needs root privileges to create the VPN tunnel. On first launch OpenFortiMac opens **Settings → Permission**: click **Set Up…** and enter your administrator password once.
 
 The app installs this rule in `/etc/sudoers.d/openfortimac` (validated with `visudo`, owned by root, read-only):
 
@@ -76,7 +76,15 @@ A lock icon appears in the menu bar. Click it → **Settings** → **Servers** t
 
 ## Usage
 
-Click the menu bar icon to see your servers. Click a server name to connect. Click **Disconnect** to drop the connection.
+Click the menu bar icon to open the panel:
+
+- **Status card** — the current server, connection time and tunnel IP, with **Disconnect** (⌘D)
+- **Servers** — hover a server and click **Connect**; a server without a saved password opens its editor
+- **Footer** — add a server, Settings (⌘,), Log, Quit (⌘Q)
+
+If the administrator permission is missing, a banner in the panel links to **Settings → Permission**. Right-click the menu bar icon for a quick menu with Disconnect, Settings and Quit.
+
+Each server can have its own icon, chosen in the server editor.
 
 | Icon | Status |
 |------|--------|
@@ -113,7 +121,7 @@ The `trusted_cert` field is optional. If omitted, the app uses `--trusted-cert=a
 
 **"openfortivpn not found"** — Check the binary path in Settings → General. Run `which openfortivpn` to find yours.
 
-**"Administrator permission not set up"** — The sudo rule is missing or points to another openfortivpn path. Open Settings → General → Administrator Permission and click **Set Up…** (or **Update…**).
+**"Administrator permission not set up"** — The sudo rule is missing or points to another openfortivpn path. Open Settings → Permission and click **Set Up…** (or **Update…**).
 
 **"OpenFortiMac is damaged" / "cannot be opened"** — See [First launch](#first-launch).
 
@@ -131,7 +139,7 @@ This also removes `/etc/sudoers.d/openfortimac` (brew asks for your password). A
 
 ### Manual
 
-1. Settings → General → Administrator Permission → **Remove**
+1. Settings → Permission → **Remove**
 2. Quit OpenFortiMac
 3. Delete from Applications: `rm -rf /Applications/OpenFortiMac.app`
 4. Remove config: `rm -rf ~/Library/Application\ Support/OpenFortiMac`

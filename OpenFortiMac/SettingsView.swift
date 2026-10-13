@@ -3,7 +3,13 @@ import Combine
 import ServiceManagement
 
 enum SettingsTab {
-    case servers, general, log
+    case servers, permission, general, log
+}
+
+/// Asks the settings window to open the server editor, e.g. from the menu bar panel.
+enum ServerEditorRequest: Equatable {
+    case add
+    case edit(String)
 }
 
 struct SettingsView: View {
@@ -12,13 +18,15 @@ struct SettingsView: View {
     @State private var showingAddServer = false
     @State private var showingEditServer = false
     @State private var selectedTab: SettingsTab
+    @State private var pendingEditor: ServerEditorRequest?
     @State private var serverToDelete: VPNServer?
     @State private var showingDeleteConfirm = false
-
-    init(initialTab: SettingsTab = .servers) {
+    
+    init(initialTab: SettingsTab = .servers, initialEditor: ServerEditorRequest? = nil) {
         _selectedTab = State(initialValue: initialTab)
+        _pendingEditor = State(initialValue: initialEditor)
     }
-
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             serversTab
@@ -26,23 +34,41 @@ struct SettingsView: View {
                     Label("Servers", systemImage: "server.rack")
                 }
                 .tag(SettingsTab.servers)
-
+            
+            permissionTab
+                .tabItem {
+                    Label("Permission", systemImage: "lock.shield")
+                }
+                .tag(SettingsTab.permission)
+            
             generalTab
                 .tabItem {
                     Label("General", systemImage: "gearshape")
                 }
                 .tag(SettingsTab.general)
-
+            
             logTab
                 .tabItem {
                     Label("Log", systemImage: "doc.text")
                 }
                 .tag(SettingsTab.log)
         }
-        .frame(width: 540, height: 540)
+        .frame(width: 540, height: 460)
         .onReceive(NotificationCenter.default.publisher(for: .showSettingsTab)) { notification in
             if let tab = notification.object as? SettingsTab {
                 selectedTab = tab
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openServerEditor)) { notification in
+            if let request = notification.object as? ServerEditorRequest {
+                openEditor(request)
+            }
+        }
+        .onAppear {
+            if let request = pendingEditor {
+                pendingEditor = nil
+                // Wait for the window to be on screen before presenting a sheet
+                DispatchQueue.main.async { openEditor(request) }
             }
         }
         .sheet(isPresented: $showingAddServer, onDismiss: { viewModel.loadServers() }) {
@@ -66,61 +92,213 @@ struct SettingsView: View {
         }
     }
     
+    private func openEditor(_ request: ServerEditorRequest) {
+        selectedTab = .servers
+        switch request {
+        case .add:
+            showingAddServer = true
+        case .edit(let id):
+            if let server = viewModel.servers.first(where: { $0.id == id }) {
+                selectedServer = server
+                showingEditServer = true
+            }
+        }
+    }
+    
     // MARK: - Servers Tab
     
     private var serversTab: some View {
         VStack(spacing: 0) {
-            List(selection: $selectedServer) {
-                ForEach(viewModel.servers) { server in
-                    HStack {
-                        ServerRowView(server: server)
-                        Spacer()
-                        Button(action: {
-                            serverToDelete = server
-                            showingDeleteConfirm = true
-                        }) {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red.opacity(0.7))
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Delete Server")
-                    }
-                    .contentShape(Rectangle())
-                    .tag(server)
-                    .onTapGesture(count: 2) {
-                        selectedServer = server
-                        showingEditServer = true
-                    }
+            if viewModel.servers.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "server.rack")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("Add your first server")
+                        .font(.headline)
+                    Text("Host, port and username of your FortiGate SSL VPN.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Button("Add server") { showingAddServer = true }
+                        .padding(.top, 4)
                 }
-                .onMove(perform: viewModel.moveServers)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(selection: $selectedServer) {
+                    ForEach(viewModel.servers) { server in
+                        ServerRowView(
+                            server: server,
+                            onEdit: {
+                                selectedServer = server
+                                showingEditServer = true
+                            },
+                            onDelete: {
+                                serverToDelete = server
+                                showingDeleteConfirm = true
+                            }
+                        )
+                        .tag(server)
+                        .listRowSeparator(.hidden)
+                        .onTapGesture(count: 2) {
+                            selectedServer = server
+                            showingEditServer = true
+                        }
+                    }
+                    .onMove(perform: viewModel.moveServers)
+                }
+                .listStyle(.inset)
+                .id(viewModel.refreshID)
             }
-            .listStyle(.inset)
-            .id(viewModel.refreshID)
             
             Divider()
             
             HStack {
                 Button(action: { showingAddServer = true }) {
-                    Image(systemName: "plus")
+                    Label("Add server", systemImage: "plus")
                 }
-                .buttonStyle(.borderless)
-                .help("Add Server")
-                
-                Button(action: {
-                    if selectedServer != nil {
-                        showingEditServer = true
-                    }
-                }) {
-                    Image(systemName: "pencil")
-                }
-                .buttonStyle(.borderless)
-                .disabled(selectedServer == nil)
-                .help("Edit Server")
                 
                 Spacer()
+                
+                if !viewModel.servers.isEmpty {
+                    Text("Double-click to edit, drag to reorder")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
-            .padding(8)
+            .padding(10)
             .background(Color(NSColor.controlBackgroundColor))
+        }
+    }
+    
+    // MARK: - Permission Tab
+    
+    private var permissionTab: some View {
+        Form {
+            Section {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: sudoersIcon)
+                        .font(.system(size: 28))
+                        .foregroundColor(sudoersTint)
+                        .frame(width: 36)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(sudoersStatusText)
+                            .font(.headline)
+                        if let detail = sudoersStatusDetail {
+                            Text(detail)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundColor(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    if viewModel.sudoersBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+                .padding(.vertical, 6)
+                
+                if let actions = sudoersActions {
+                    HStack {
+                        Spacer()
+                        actions
+                    }
+                }
+                
+                if let error = viewModel.sudoersError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+            }
+            
+            Section("How it works") {
+                Text("openfortivpn needs root to create the VPN tunnel. OpenFortiMac adds a sudo rule so it can start without asking for your password every time.")
+                    .font(.callout)
+                Text("Any app running as your user gains the same ability. Remove the rule if you stop using OpenFortiMac.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .padding(.top, 8)
+    }
+    
+    private var sudoersActions: AnyView? {
+        let busy = viewModel.sudoersBusy
+        switch viewModel.sudoersStatus {
+        case .missing:
+            return AnyView(
+                Button("Set Up…") { viewModel.setUpSudoers() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(busy)
+            )
+        case .outdated:
+            return AnyView(HStack {
+                Button("Remove") { viewModel.removeSudoers() }
+                    .disabled(busy)
+                Button("Update…") { viewModel.setUpSudoers() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(busy)
+            })
+        case .managed:
+            return AnyView(
+                Button("Remove") { viewModel.removeSudoers() }
+                    .disabled(busy)
+            )
+        case .binaryNotFound:
+            return AnyView(
+                Button("Open General") { selectedTab = .general }
+            )
+        default:
+            return nil
+        }
+    }
+    
+    private var sudoersIcon: String {
+        switch viewModel.sudoersStatus {
+        case .managed, .external: return "checkmark.shield.fill"
+        case .outdated, .missing: return "exclamationmark.shield.fill"
+        case .binaryNotFound: return "xmark.shield.fill"
+        case .none: return "shield"
+        }
+    }
+    
+    private var sudoersTint: Color {
+        switch viewModel.sudoersStatus {
+        case .managed, .external: return .green
+        case .outdated, .missing: return .orange
+        case .binaryNotFound: return .red
+        case .none: return .secondary
+        }
+    }
+    
+    private var sudoersStatusText: String {
+        switch viewModel.sudoersStatus {
+        case .none: return "Checking…"
+        case .managed: return "openfortivpn can start without a password"
+        case .external: return "Allowed by a rule you added manually"
+        case .outdated: return "The rule points to a different openfortivpn"
+        case .missing: return "Not set up: connections will fail"
+        case .binaryNotFound: return "openfortivpn not found"
+        }
+    }
+    
+    private var sudoersStatusDetail: String? {
+        switch viewModel.sudoersStatus {
+        case .managed, .outdated:
+            return SudoersManager.rulePath
+        case .external:
+            return "Not managed by OpenFortiMac (e.g. /etc/sudoers.d/openfortivpn)"
+        case .missing:
+            return viewModel.resolvedOpenfortivpnPath
+        case .binaryNotFound:
+            return "Install it with brew install openfortivpn, or set its path in General."
+        case .none:
+            return nil
         }
     }
     
@@ -151,54 +329,7 @@ struct SettingsView: View {
                         .foregroundColor(.orange)
                 }
             }
-
-            Section("Administrator Permission") {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(sudoersStatusText)
-                        if let detail = sudoersStatusDetail {
-                            Text(detail)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .textSelection(.enabled)
-                        }
-                    }
-
-                    Spacer()
-
-                    if viewModel.sudoersBusy {
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-
-                    switch viewModel.sudoersStatus {
-                    case .missing:
-                        Button("Set Up…") { viewModel.setUpSudoers() }
-                            .disabled(viewModel.sudoersBusy)
-                    case .outdated:
-                        Button("Update…") { viewModel.setUpSudoers() }
-                            .disabled(viewModel.sudoersBusy)
-                        Button("Remove") { viewModel.removeSudoers() }
-                            .disabled(viewModel.sudoersBusy)
-                    case .managed:
-                        Button("Remove") { viewModel.removeSudoers() }
-                            .disabled(viewModel.sudoersBusy)
-                    default:
-                        EmptyView()
-                    }
-                }
-
-                if let error = viewModel.sudoersError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                }
-
-                Text("openfortivpn needs root to create the tunnel. This sudo rule lets it start without a password prompt; any app running as your user gains the same ability.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
+            
             Section("Startup") {
                 Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
             }
@@ -225,31 +356,7 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding(.top, 8)
     }
-
-    private var sudoersStatusText: String {
-        switch viewModel.sudoersStatus {
-        case .none: return "Checking…"
-        case .managed: return "✅ Set up"
-        case .external: return "✅ Allowed by a rule you added manually"
-        case .outdated: return "⚠️ Rule points to a different openfortivpn path"
-        case .missing: return "⚠️ Not set up: connections will fail"
-        case .binaryNotFound: return "openfortivpn not found"
-        }
-    }
-
-    private var sudoersStatusDetail: String? {
-        switch viewModel.sudoersStatus {
-        case .managed, .outdated:
-            return SudoersManager.rulePath
-        case .external:
-            return "Not managed by OpenFortiMac (e.g. /etc/sudoers.d/openfortivpn)"
-        case .missing:
-            return viewModel.resolvedOpenfortivpnPath
-        default:
-            return nil
-        }
-    }
-
+    
     // MARK: - Log Tab
     
     private var logTab: some View {
@@ -322,25 +429,59 @@ struct SettingsView: View {
 
 struct ServerRowView: View {
     let server: VPNServer
-    
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(server.name)
-                .font(.headline)
-            HStack(spacing: 4) {
-                Text("\(server.host):\(server.port)")
-                Text("•")
-                Text(server.username)
-                if KeychainHelper.read(for: server.id) == nil {
-                    Text("•")
-                    Text("No password")
-                        .foregroundColor(.orange)
-                }
+        HStack(spacing: 12) {
+            Image(systemName: server.iconName)
+                .font(.system(size: 15))
+                .foregroundColor(.accentColor)
+                .frame(width: 32, height: 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.accentColor.opacity(0.12))
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(server.name)
+                    .font(.headline)
+                Text("\(server.host):\(server.port) · \(server.username)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
-            .font(.caption)
-            .foregroundColor(.secondary)
+
+            Spacer()
+
+            if KeychainHelper.read(for: server.id) == nil {
+                Text("No password")
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.orange.opacity(0.15)))
+            }
+
+            Button(action: onEdit) {
+                Image(systemName: "pencil")
+            }
+            .buttonStyle(.borderless)
+            .help("Edit Server")
+
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .foregroundColor(.red.opacity(0.7))
+            }
+            .buttonStyle(.borderless)
+            .help("Delete Server")
         }
-        .padding(.vertical, 4)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.primary.opacity(0.1))
+        )
+        .contentShape(Rectangle())
     }
 }
 
@@ -358,6 +499,7 @@ struct ServerEditView: View {
     @State private var username: String = ""
     @State private var password: String = ""
     @State private var trustedCert: String = ""
+    @State private var icon: String = VPNServer.defaultIcon
     @State private var validationError: String?
     
     var isEditing: Bool { server != nil }
@@ -383,6 +525,27 @@ struct ServerEditView: View {
                 TextField("Certificate (optional):", text: $trustedCert)
                     .frame(width: 280)
                     .font(.system(size: 11, design: .monospaced))
+                LabeledContent("Icon:") {
+                    HStack(spacing: 4) {
+                        ForEach(VPNServer.iconChoices, id: \.self) { choice in
+                            Button {
+                                icon = choice
+                            } label: {
+                                Image(systemName: choice)
+                                    .frame(width: 28, height: 24)
+                                    .foregroundColor(icon == choice ? .accentColor : .secondary)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(icon == choice ? Color.accentColor.opacity(0.15) : Color.clear)
+                                    )
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(choice)
+                        }
+                    }
+                    .frame(width: 280, alignment: .leading)
+                }
             }
             .formStyle(.grouped)
             .scrollDisabled(true)
@@ -415,7 +578,7 @@ struct ServerEditView: View {
             }
             .padding()
         }
-        .frame(width: 420, height: 360)
+        .frame(width: 440, height: 410)
         .onAppear {
             if let server = server {
                 name = server.name
@@ -424,6 +587,7 @@ struct ServerEditView: View {
                 username = server.username
                 password = KeychainHelper.read(for: server.id) ?? ""
                 trustedCert = server.trustedCert ?? ""
+                icon = server.iconName
             }
         }
     }
@@ -467,6 +631,7 @@ struct ServerEditView: View {
             username: username.trimmingCharacters(in: .whitespacesAndNewlines),
             password: nil,
             trustedCert: trustedCert.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : trustedCert.trimmingCharacters(in: .whitespacesAndNewlines),
+            icon: icon,
             id: server?.id
         )
         

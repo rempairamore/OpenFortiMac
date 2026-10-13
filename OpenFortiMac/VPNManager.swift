@@ -13,9 +13,21 @@ enum VPNState: Equatable {
 class VPNManager: ObservableObject {
     static let shared = VPNManager()
     
-    @Published private(set) var state: VPNState = .disconnected
+    @Published private(set) var state: VPNState = .disconnected {
+        didSet {
+            // Single reset point for every path that ends a connection
+            if state == .disconnected {
+                currentServer = nil
+                connectedSince = nil
+                assignedIP = nil
+            }
+        }
+    }
     @Published private(set) var connectionLogs: [String] = []
-    
+    @Published private(set) var currentServer: VPNServer?
+    @Published private(set) var connectedSince: Date?
+    @Published private(set) var assignedIP: String?
+
     private var vpnProcess: Process?
     private var outputPipe: Pipe?
     private var tempConfigPath: String?
@@ -32,6 +44,7 @@ class VPNManager: ObservableObject {
         }
         
         state = .connecting
+        currentServer = server
         connectionLogs = []
         notifyStateChange()
         addLog("Connecting to \(server.name)...")
@@ -62,7 +75,7 @@ class VPNManager: ObservableObject {
         // Fail early with a clear message instead of a bare sudo error
         guard SudoersManager.shared.isAllowed(binaryPath: openfortivpnPath) else {
             DispatchQueue.main.async { [weak self] in
-                self?.connectionFailed(reason: "Administrator permission not set up. Open Settings › General.")
+                self?.connectionFailed(reason: "Administrator permission not set up. Open Settings › Permission.")
             }
             return
         }
@@ -164,10 +177,15 @@ class VPNManager: ObservableObject {
         
         for line in lines {
             addLog(line)
-            
+
+            if let ip = Self.assignedAddress(in: line) {
+                assignedIP = ip
+            }
+
             if line.contains("Tunnel is up and running") {
                 connectionTimeoutTimer?.invalidate()
                 connectionTimeoutTimer = nil
+                connectedSince = Date()
                 state = .connected(serverName: server.name)
                 notifyStateChange()
                 showNotification(title: "VPN Connected ✅", body: server.name)
@@ -196,6 +214,17 @@ class VPNManager: ObservableObject {
         }
     }
     
+    /// Extracts the tunnel IP from openfortivpn's "Got addresses: [10.0.0.5], ns [...]" line.
+    static func assignedAddress(in line: String) -> String? {
+        guard let range = line.range(of: #"Got addresses: \[[^\],]+"#, options: .regularExpression) else {
+            return nil
+        }
+        let match = line[range]
+        guard let open = match.firstIndex(of: "[") else { return nil }
+        let ip = match[match.index(after: open)...].trimmingCharacters(in: .whitespaces)
+        return ip.isEmpty ? nil : ip
+    }
+
     private func handleTermination(exitCode: Int32) {
         connectionTimeoutTimer?.invalidate()
         connectionTimeoutTimer = nil

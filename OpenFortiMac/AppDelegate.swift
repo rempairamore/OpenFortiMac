@@ -7,7 +7,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var vpnManager = VPNManager.shared
     private var configManager = ConfigManager.shared
     private var settingsWindow: NSWindow?
-    private var sudoersStatus: SudoersStatus?
+    private let panelModel = PanelViewModel()
+    private let popover = NSPopover()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -16,24 +17,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let isFirstLaunch = !FileManager.default.fileExists(atPath: ConfigManager.configPath.path)
         configManager.createDefaultConfig()
 
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-
-        updateStatusIcon()
-        setupMenu()
-
-        refreshSudoersStatus { [weak self] status in
-            // Fresh installs (e.g. via Homebrew) land straight on the permission setup
-            if isFirstLaunch && (status == .missing || status == .outdated) {
-                self?.showSettings(tab: .general)
-            }
+        panelModel.openSettings = { [weak self] tab, editor in
+            self?.showSettings(tab: tab, editor: editor)
+        }
+        panelModel.quit = { [weak self] in
+            self?.quitApp()
         }
 
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(sudoersDidChange(_:)),
-            name: .sudoersChanged,
-            object: nil
-        )
+        setupPopover()
+
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            button.target = self
+            button.action = #selector(statusItemClicked)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+        updateStatusIcon()
+
+        panelModel.refreshSudoersStatus { [weak self] status in
+            // Fresh installs (e.g. via Homebrew) land straight on the permission setup
+            if isFirstLaunch && (status == .missing || status == .outdated) {
+                self?.showSettings(tab: .permission, editor: nil)
+            }
+        }
 
         NotificationCenter.default.addObserver(
             self,
@@ -41,177 +47,81 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             name: .vpnStateChanged,
             object: nil
         )
-        
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(configDidChange),
-            name: .configChanged,
-            object: nil
-        )
-    }
-    
-    @objc private func configDidChange() {
-        configManager.reload()
-        setupMenu()
     }
 
-    @objc private func sudoersDidChange(_ notification: Notification) {
-        guard let status = notification.object as? SudoersStatus else { return }
-        sudoersStatus = status
-        setupMenu()
+    // MARK: - Menu Bar Panel
+
+    private func setupPopover() {
+        let controller = NSHostingController(rootView: MenuPanelView(model: panelModel, vpn: vpnManager))
+        // Let the popover follow the SwiftUI content height (servers, banner)
+        controller.sizingOptions = .preferredContentSize
+        popover.contentViewController = controller
+        popover.behavior = .transient
+        popover.animates = true
     }
 
-    private func refreshSudoersStatus(completion: ((SudoersStatus) -> Void)? = nil) {
-        let path = vpnManager.findOpenfortivpnBinary()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let status = SudoersManager.shared.status(for: path)
-            DispatchQueue.main.async {
-                self?.sudoersStatus = status
-                self?.setupMenu()
-                completion?(status)
-            }
+    @objc private func statusItemClicked() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            showContextMenu()
+        } else {
+            togglePopover()
         }
     }
 
-    private func setupMenu() {
+    private func togglePopover() {
+        guard let button = statusItem.button else { return }
+
+        if popover.isShown {
+            popover.performClose(nil)
+            return
+        }
+
+        // The rule may have changed outside the app since the last check
+        panelModel.refreshSudoersStatus()
+
+        // Activate so the panel's keyboard shortcuts (⌘D, ⌘,, ⌘Q) work right away
+        NSApp.activate(ignoringOtherApps: true)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
+    }
+
+    /// Right click keeps a classic menu for quick access.
+    private func showContextMenu() {
+        popover.performClose(nil)
+
         let menu = NSMenu()
 
-        // Status
-        let statusMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        statusMenuItem.attributedTitle = statusAttributedTitle()
-        statusMenuItem.isEnabled = false
-        menu.addItem(statusMenuItem)
-
-        // Setup warning
-        if let warning = setupWarning() {
-            let warningItem = NSMenuItem(title: warning, action: #selector(openGeneralSettings), keyEquivalent: "")
-            warningItem.target = self
-            menu.addItem(warningItem)
+        if case .connected = vpnManager.state {
+            let disconnectItem = NSMenuItem(title: "Disconnect", action: #selector(disconnect), keyEquivalent: "d")
+            disconnectItem.target = self
+            menu.addItem(disconnectItem)
+            menu.addItem(NSMenuItem.separator())
         }
 
-        menu.addItem(NSMenuItem.separator())
-        
-        // Server list
-        let servers = configManager.config.servers
-        let isDisconnected = vpnManager.state == .disconnected
-        
-        if servers.isEmpty {
-            let noServersItem = NSMenuItem(title: "No servers — Open Settings", action: #selector(openSettings), keyEquivalent: "")
-            noServersItem.target = self
-            noServersItem.isEnabled = isDisconnected
-            menu.addItem(noServersItem)
-        } else {
-            for (index, server) in servers.enumerated() {
-                let serverItem = NSMenuItem(
-                    title: server.name,
-                    action: #selector(connectToServer(_:)),
-                    keyEquivalent: ""
-                )
-                serverItem.tag = index
-                
-                if isDisconnected {
-                    serverItem.target = self
-                    serverItem.action = #selector(connectToServer(_:))
-                } else {
-                    serverItem.target = nil
-                    serverItem.action = nil
-                    if case .connected(let connectedName) = vpnManager.state, connectedName == server.name {
-                        serverItem.state = .on
-                    }
-                }
-
-                
-                menu.addItem(serverItem)
-            }
-        }
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // Disconnect
-        let disconnectItem = NSMenuItem(title: "Disconnect", action: #selector(disconnect), keyEquivalent: "d")
-        disconnectItem.target = self
-        disconnectItem.isEnabled = {
-            if case .connected = vpnManager.state { return true }
-            return false
-        }()
-        menu.addItem(disconnectItem)
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // Settings
-        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
-        settingsItem.isEnabled = isDisconnected
         menu.addItem(settingsItem)
-        
-        // Quit
-        let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
+
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(title: "Quit OpenFortiMac", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
-        
-        self.statusItem.menu = menu
-    }
-    
-    private func setupWarning() -> String? {
-        switch sudoersStatus {
-        case .missing, .outdated:
-            return "⚠️ Setup required — Open Settings"
-        case .binaryNotFound:
-            return "⚠️ openfortivpn not found — Open Settings"
-        default:
-            return nil
-        }
+
+        // Attach the menu only for this click, so a left click keeps opening the panel
+        statusItem.menu = menu
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
     }
 
-    private func statusTitle() -> String {
-        switch vpnManager.state {
-        case .disconnected:
-            return "● Disconnected"
-        case .connecting:
-            return "● Connecting..."
-        case .connected(let serverName):
-            return "● Connected: \(serverName)"
-        case .disconnecting:
-            return "● Disconnecting..."
-        }
-    }
-    
-    private func statusAttributedTitle() -> NSAttributedString {
-        let dot: String
-        let dotColor: NSColor
-        let text: String
-        
-        switch vpnManager.state {
-        case .disconnected:
-            dot = "● "
-            dotColor = .secondaryLabelColor
-            text = "Disconnected"
-        case .connecting:
-            dot = "● "
-            dotColor = .systemOrange
-            text = "Connecting..."
-        case .connected(let serverName):
-            dot = "● "
-            dotColor = .systemGreen
-            text = "Connected: \(serverName)"
-        case .disconnecting:
-            dot = "● "
-            dotColor = .systemOrange
-            text = "Disconnecting..."
-        }
-        
-        let result = NSMutableAttributedString()
-        result.append(NSAttributedString(string: dot, attributes: [.foregroundColor: dotColor]))
-        result.append(NSAttributedString(string: text, attributes: [.foregroundColor: NSColor.labelColor]))
-        return result
-    }
-    
+    // MARK: - Status Icon
+
     private func updateStatusIcon() {
         guard let button = statusItem.button else { return }
-        
+
         let symbolName: String
         let description: String
-        
+
         switch vpnManager.state {
         case .disconnected:
             symbolName = "lock.open"
@@ -223,10 +133,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             symbolName = "lock.fill"
             description = "Connected"
         }
-        
+
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description) {
             image.isTemplate = true
-            
+
             // Tint green when connected
             if case .connected = vpnManager.state {
                 let config = NSImage.SymbolConfiguration(paletteColors: [.systemGreen])
@@ -237,64 +147,42 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
     }
-    
+
     @objc private func vpnStateChanged() {
         DispatchQueue.main.async { [weak self] in
             self?.updateStatusIcon()
-            self?.setupMenu()
         }
     }
-    
-    @objc private func connectToServer(_ sender: NSMenuItem) {
-        let index = sender.tag
-        let servers = configManager.config.servers
-        guard index < servers.count else { return }
-        
-        let server = servers[index]
-        
-        guard let password = KeychainHelper.read(for: server.id), !password.isEmpty else {
-            showAlert(title: "No Password", message: "Please set a password in Settings for server \"\(server.name)\".")
-            return
-        }
-        
-        vpnManager.connect(to: server, password: password)
-    }
-    
-    private func showAlert(title: String, message: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = message
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
-    }
-    
+
+    // MARK: - Actions
+
     @objc private func disconnect() {
         vpnManager.disconnect()
     }
-    
+
     @objc private func openSettings() {
-        showSettings(tab: nil)
+        showSettings(tab: nil, editor: nil)
     }
 
-    @objc private func openGeneralSettings() {
-        showSettings(tab: .general)
-    }
+    /// Opens the settings window, switching to `tab` and opening the server editor when given.
+    private func showSettings(tab: SettingsTab?, editor: ServerEditorRequest?) {
+        popover.performClose(nil)
 
-    /// Opens the settings window, switching to `tab` when given.
-    private func showSettings(tab: SettingsTab?) {
         if let existingWindow = settingsWindow {
             if let tab = tab {
                 NotificationCenter.default.post(name: .showSettingsTab, object: tab)
+            }
+            if let editor = editor {
+                NotificationCenter.default.post(name: .openServerEditor, object: editor)
             }
             existingWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
 
-        let settingsView = SettingsView(initialTab: tab ?? .servers)
+        let settingsView = SettingsView(initialTab: tab ?? .servers, initialEditor: editor)
         let hostingController = NSHostingController(rootView: settingsView)
-        
+
         let window = NSWindow(contentViewController: hostingController)
         window.title = "OpenFortiMac Settings"
         window.styleMask = [.titled, .closable, .miniaturizable]
@@ -302,12 +190,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrameAutosaveName("SettingsWindow")
         window.level = .floating
         window.delegate = self
-        
+
         settingsWindow = window
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
-    
+
     @objc private func quitApp() {
         if case .connected = vpnManager.state {
             vpnManager.disconnect()
@@ -318,9 +206,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApp.terminate(nil)
         }
     }
-    
+
     // MARK: - NSWindowDelegate
-    
+
     func windowWillClose(_ notification: Notification) {
         if let window = notification.object as? NSWindow, window == settingsWindow {
             settingsWindow = nil
@@ -335,4 +223,5 @@ extension Notification.Name {
     static let configChanged = Notification.Name("configChanged")
     static let sudoersChanged = Notification.Name("sudoersChanged")
     static let showSettingsTab = Notification.Name("showSettingsTab")
+    static let openServerEditor = Notification.Name("openServerEditor")
 }
