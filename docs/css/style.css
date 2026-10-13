@@ -415,6 +415,23 @@ code {
 .shot img {
   display: block;
   width: 100%;
+  height: auto;
+}
+
+/* Menu bar panel screenshot: keep it at its native size instead of upscaling */
+.shot-panel {
+  max-width: 346px;
+}
+
+/* Homebrew install command, selectable in one click */
+.install-cmd {
+  align-items: flex-start;
+  user-select: all;
+  animation-delay: 0.65s;
+}
+
+.hero .install-cmd {
+  margin-top: -14px;
 }
 
 /* ============================================================

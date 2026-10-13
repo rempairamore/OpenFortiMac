@@ -67,6 +67,11 @@
         </a>
       </div>
 
+      <div class="prompt install-cmd">
+        <span class="prompt-sigil">$</span>
+        <span class="prompt-cmd">brew install --cask rempairamore/tap/openfortimac</span>
+      </div>
+
       <div class="meta">
         <span class="meta-item"><span class="dot dot-green"></span>macOS 13+</span>
         <span class="meta-sep">&middot;</span>
@@ -81,8 +86,8 @@
   <!-- ========== SCREENSHOT ========== -->
   <section class="showcase">
     <div class="container">
-      <figure class="shot">
-        <img src="https://github.com/rempairamore/OpenFortiMac/raw/main/img/openfortimac-video.gif" alt="OpenFortiMac in the macOS menu bar, connecting to a VPN server with one click" />
+      <figure class="shot shot-panel">
+        <img src="https://github.com/rempairamore/OpenFortiMac/raw/main/img/openfortimac-2-connected.png" width="346" height="284" alt="OpenFortiMac menu bar panel connected to a VPN server, showing connection time and tunnel IP" />
       </figure>
     </div>
   </section>
@@ -102,7 +107,12 @@
 
         <div class="flag">
           <dt>--one-click-connect</dt>
-          <dd>Click the menu bar icon, pick a server, you're in. Disconnect the same way.</dd>
+          <dd>Click the menu bar icon, hit Connect on a server, you're in. Connection time and tunnel IP at a glance, one click to disconnect.</dd>
+        </div>
+
+        <div class="flag">
+          <dt>--no-visudo</dt>
+          <dd>Allow openfortivpn to run as root from Settings with a single password prompt. No terminal, no sudoers editing by hand.</dd>
         </div>
 
         <div class="flag">
@@ -125,7 +135,11 @@
     <div class="container outro-inner">
       <div class="section-label"># get it</div>
       <h2>Free. Open source. Ready to install.</h2>
-      <p>Grab the DMG from the latest release, or build it yourself from source.</p>
+      <p>Install it with Homebrew, grab the DMG from the latest release, or build it yourself from source.</p>
+      <div class="prompt install-cmd">
+        <span class="prompt-sigil">$</span>
+        <span class="prompt-cmd">brew install --cask rempairamore/tap/openfortimac</span>
+      </div>
       <div class="cta cta-tight">
         <a href="https://github.com/rempairamore/OpenFortiMac/releases/latest" class="btn btn-primary">
           <span class="btn-sigil">&#x2192;</span>

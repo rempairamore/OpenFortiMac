@@ -13,13 +13,24 @@ enum VPNState: Equatable {
 class VPNManager: ObservableObject {
     static let shared = VPNManager()
     
-    @Published private(set) var state: VPNState = .disconnected
+    @Published private(set) var state: VPNState = .disconnected {
+        didSet {
+            // Single reset point for every path that ends a connection
+            if state == .disconnected {
+                currentServer = nil
+                connectedSince = nil
+                assignedIP = nil
+            }
+        }
+    }
     @Published private(set) var connectionLogs: [String] = []
-    
+    @Published private(set) var currentServer: VPNServer?
+    @Published private(set) var connectedSince: Date?
+    @Published private(set) var assignedIP: String?
+
     private var vpnProcess: Process?
     private var outputPipe: Pipe?
     private var tempConfigPath: String?
-    private var vpnPID: Int32?
     private var connectionTimeoutTimer: Timer?
     
     private init() {
@@ -33,6 +44,7 @@ class VPNManager: ObservableObject {
         }
         
         state = .connecting
+        currentServer = server
         connectionLogs = []
         notifyStateChange()
         addLog("Connecting to \(server.name)...")
@@ -53,6 +65,21 @@ class VPNManager: ObservableObject {
     }
     
     private func performConnection(server: VPNServer, password: String) {
+        guard let openfortivpnPath = findOpenfortivpnBinary() else {
+            DispatchQueue.main.async { [weak self] in
+                self?.connectionFailed(reason: "openfortivpn not found. Install via: brew install openfortivpn")
+            }
+            return
+        }
+
+        // Fail early with a clear message instead of a bare sudo error
+        guard SudoersManager.shared.isAllowed(binaryPath: openfortivpnPath) else {
+            DispatchQueue.main.async { [weak self] in
+                self?.connectionFailed(reason: "Administrator permission not set up. Open Settings › Permission.")
+            }
+            return
+        }
+
         let tempDir = FileManager.default.temporaryDirectory
         let configPath = tempDir.appendingPathComponent("fortivpn_\(UUID().uuidString).conf")
         tempConfigPath = configPath.path
@@ -77,14 +104,7 @@ class VPNManager: ObservableObject {
             }
             return
         }
-        
-        guard let openfortivpnPath = findOpenfortivpnBinary() else {
-            DispatchQueue.main.async { [weak self] in
-                self?.connectionFailed(reason: "openfortivpn not found. Install via: brew install openfortivpn")
-            }
-            return
-        }
-        
+
         var arguments = ["-c", configPath.path]
         if server.trustedCert == nil || server.trustedCert?.isEmpty == true {
             arguments.append("--trusted-cert=any")
@@ -93,7 +113,7 @@ class VPNManager: ObservableObject {
         runWithSudo(openfortivpnPath: openfortivpnPath, arguments: arguments, server: server)
     }
     
-    private func findOpenfortivpnBinary() -> String? {
+    func findOpenfortivpnBinary() -> String? {
         let configPath = ConfigManager.shared.config.openfortivpnPath
         if FileManager.default.isExecutableFile(atPath: configPath) {
             return configPath
@@ -117,8 +137,9 @@ class VPNManager: ObservableObject {
     private func runWithSudo(openfortivpnPath: String, arguments: [String], server: VPNServer) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-        process.arguments = [openfortivpnPath] + arguments
-        
+        // -n: never prompt; without a sudoers rule sudo exits instead of waiting for a tty
+        process.arguments = ["-n", openfortivpnPath] + arguments
+
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
@@ -144,51 +165,9 @@ class VPNManager: ObservableObject {
         do {
             try process.run()
             addLog("Starting connection to \(server.name)...")
-            
-            // Capture the real openfortivpn PID after a short delay
-            // pgrep -f matches the unique config path
-            captureVPNPID()
         } catch {
             DispatchQueue.main.async { [weak self] in
                 self?.connectionFailed(reason: "Failed to start process: \(error.localizedDescription)")
-            }
-        }
-    }
-    
-    /// Polls pgrep to find the openfortivpn process by its unique config path.
-    /// Retries a few times since sudo may take a moment to spawn the child.
-    private func captureVPNPID() {
-        guard let configPath = tempConfigPath else { return }
-        
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            for _ in 0..<10 {
-                usleep(300_000) // 0.3s
-                
-                let pgrep = Process()
-                pgrep.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
-                pgrep.arguments = ["-f", configPath]
-                let pipe = Pipe()
-                pgrep.standardOutput = pipe
-                pgrep.standardError = FileHandle.nullDevice
-                
-                do {
-                    try pgrep.run()
-                    pgrep.waitUntilExit()
-                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                    if let output = String(data: data, encoding: .utf8) {
-                        let pids = output.components(separatedBy: .newlines)
-                            .compactMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
-                            .filter { $0 > 0 }
-                        
-                        if let pid = pids.first {
-                            DispatchQueue.main.async {
-                                self?.vpnPID = pid
-                                self?.addLog("Captured openfortivpn PID: \(pid)")
-                            }
-                            return
-                        }
-                    }
-                } catch {}
             }
         }
     }
@@ -198,10 +177,15 @@ class VPNManager: ObservableObject {
         
         for line in lines {
             addLog(line)
-            
+
+            if let ip = Self.assignedAddress(in: line) {
+                assignedIP = ip
+            }
+
             if line.contains("Tunnel is up and running") {
                 connectionTimeoutTimer?.invalidate()
                 connectionTimeoutTimer = nil
+                connectedSince = Date()
                 state = .connected(serverName: server.name)
                 notifyStateChange()
                 showNotification(title: "VPN Connected ✅", body: server.name)
@@ -230,6 +214,17 @@ class VPNManager: ObservableObject {
         }
     }
     
+    /// Extracts the tunnel IP from openfortivpn's "Got addresses: [10.0.0.5], ns [...]" line.
+    static func assignedAddress(in line: String) -> String? {
+        guard let range = line.range(of: #"Got addresses: \[[^\],]+"#, options: .regularExpression) else {
+            return nil
+        }
+        let match = line[range]
+        guard let open = match.firstIndex(of: "[") else { return nil }
+        let ip = match[match.index(after: open)...].trimmingCharacters(in: .whitespaces)
+        return ip.isEmpty ? nil : ip
+    }
+
     private func handleTermination(exitCode: Int32) {
         connectionTimeoutTimer?.invalidate()
         connectionTimeoutTimer = nil
@@ -256,7 +251,6 @@ class VPNManager: ObservableObject {
         }
         
         vpnProcess = nil
-        vpnPID = nil
         outputPipe = nil
     }
     
@@ -272,7 +266,8 @@ class VPNManager: ObservableObject {
         terminateAndCleanup()
     }
     
-    /// Kills openfortivpn using the captured PID, falls back to pkill with unique config path.
+    /// Sends SIGTERM to the sudo parent, which relays it to openfortivpn so it can restore routes and DNS.
+    /// No extra sudo commands are needed, so the sudoers rule can stay limited to openfortivpn.
     private func terminateAndCleanup() {
         guard let process = vpnProcess else {
             cleanupTempFiles()
@@ -280,55 +275,20 @@ class VPNManager: ObservableObject {
             notifyStateChange()
             return
         }
-        
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            var killed = false
-            
-            // Method 1: Kill by captured PID
-            if let pid = self?.vpnPID, pid > 0 {
-                let killProcess = Process()
-                killProcess.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-                killProcess.arguments = ["kill", "-SIGTERM", String(pid)]
-                killProcess.standardOutput = FileHandle.nullDevice
-                killProcess.standardError = FileHandle.nullDevice
-                do {
-                    try killProcess.run()
-                    killProcess.waitUntilExit()
-                    killed = (killProcess.terminationStatus == 0)
-                } catch {}
-            }
-            
-            // Method 2: Fallback - pkill matching unique config path
-            if !killed, let configPath = self?.tempConfigPath {
-                let killProcess = Process()
-                killProcess.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-                killProcess.arguments = ["pkill", "-SIGTERM", "-f", configPath]
-                killProcess.standardOutput = FileHandle.nullDevice
-                killProcess.standardError = FileHandle.nullDevice
-                do {
-                    try killProcess.run()
-                    killProcess.waitUntilExit()
-                    killed = (killProcess.terminationStatus == 0)
-                } catch {}
-            }
-            
-            DispatchQueue.main.async {
-                if process.isRunning {
-                    process.terminate()
-                }
-                
-                // Safety net: force state update after 3s
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                    if self?.state != .disconnected {
-                        self?.state = .disconnected
-                        self?.notifyStateChange()
-                        self?.cleanupTempFiles()
-                        self?.vpnProcess = nil
-                        self?.vpnPID = nil
-                        self?.outputPipe = nil
-                        self?.addLog("Disconnected (forced)")
-                    }
-                }
+
+        if process.isRunning {
+            process.terminate()
+        }
+
+        // Safety net: force state update after 3s
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            if self?.state != .disconnected {
+                self?.state = .disconnected
+                self?.notifyStateChange()
+                self?.cleanupTempFiles()
+                self?.vpnProcess = nil
+                self?.outputPipe = nil
+                self?.addLog("Disconnected (forced)")
             }
         }
     }
