@@ -7,18 +7,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var vpnManager = VPNManager.shared
     private var configManager = ConfigManager.shared
     private var settingsWindow: NSWindow?
-    
+    private var sudoersStatus: SudoersStatus?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        
+
         // Create default config if first launch
+        let isFirstLaunch = !FileManager.default.fileExists(atPath: ConfigManager.configPath.path)
         configManager.createDefaultConfig()
-        
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        
+
         updateStatusIcon()
         setupMenu()
-        
+
+        refreshSudoersStatus { [weak self] status in
+            // Fresh installs (e.g. via Homebrew) land straight on the permission setup
+            if isFirstLaunch && (status == .missing || status == .outdated) {
+                self?.showSettings(tab: .general)
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(sudoersDidChange(_:)),
+            name: .sudoersChanged,
+            object: nil
+        )
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(vpnStateChanged),
@@ -38,16 +54,41 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         configManager.reload()
         setupMenu()
     }
-    
+
+    @objc private func sudoersDidChange(_ notification: Notification) {
+        guard let status = notification.object as? SudoersStatus else { return }
+        sudoersStatus = status
+        setupMenu()
+    }
+
+    private func refreshSudoersStatus(completion: ((SudoersStatus) -> Void)? = nil) {
+        let path = vpnManager.findOpenfortivpnBinary()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let status = SudoersManager.shared.status(for: path)
+            DispatchQueue.main.async {
+                self?.sudoersStatus = status
+                self?.setupMenu()
+                completion?(status)
+            }
+        }
+    }
+
     private func setupMenu() {
         let menu = NSMenu()
-        
+
         // Status
         let statusMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         statusMenuItem.attributedTitle = statusAttributedTitle()
         statusMenuItem.isEnabled = false
         menu.addItem(statusMenuItem)
-        
+
+        // Setup warning
+        if let warning = setupWarning() {
+            let warningItem = NSMenuItem(title: warning, action: #selector(openGeneralSettings), keyEquivalent: "")
+            warningItem.target = self
+            menu.addItem(warningItem)
+        }
+
         menu.addItem(NSMenuItem.separator())
         
         // Server list
@@ -111,6 +152,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         self.statusItem.menu = menu
     }
     
+    private func setupWarning() -> String? {
+        switch sudoersStatus {
+        case .missing, .outdated:
+            return "⚠️ Setup required — Open Settings"
+        case .binaryNotFound:
+            return "⚠️ openfortivpn not found — Open Settings"
+        default:
+            return nil
+        }
+    }
+
     private func statusTitle() -> String {
         switch vpnManager.state {
         case .disconnected:
@@ -222,13 +274,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     
     @objc private func openSettings() {
+        showSettings(tab: nil)
+    }
+
+    @objc private func openGeneralSettings() {
+        showSettings(tab: .general)
+    }
+
+    /// Opens the settings window, switching to `tab` when given.
+    private func showSettings(tab: SettingsTab?) {
         if let existingWindow = settingsWindow {
+            if let tab = tab {
+                NotificationCenter.default.post(name: .showSettingsTab, object: tab)
+            }
             existingWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
-        
-        let settingsView = SettingsView()
+
+        let settingsView = SettingsView(initialTab: tab ?? .servers)
         let hostingController = NSHostingController(rootView: settingsView)
         
         let window = NSWindow(contentViewController: hostingController)
@@ -269,4 +333,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 extension Notification.Name {
     static let vpnStateChanged = Notification.Name("vpnStateChanged")
     static let configChanged = Notification.Name("configChanged")
+    static let sudoersChanged = Notification.Name("sudoersChanged")
+    static let showSettingsTab = Notification.Name("showSettingsTab")
 }

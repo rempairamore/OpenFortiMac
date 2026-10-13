@@ -12,35 +12,20 @@ Passwords are stored in the macOS Keychain.
 
 ## Installation
 
-### 1. Install openfortivpn
+### Homebrew (recommended)
 
 ```bash
-brew install openfortivpn
+brew install --cask rempairamore/tap/openfortimac
 ```
 
-### 2. Configure sudoers
+This installs the app and [openfortivpn](https://formulae.brew.sh/formula/openfortivpn) from the [rempairamore/homebrew-tap](https://github.com/rempairamore/homebrew-tap) tap. Update with `brew upgrade --cask openfortimac`.
 
-openfortivpn needs root privileges to create a VPN tunnel. To avoid password prompts, allow it via sudoers:
+### DMG
 
-```bash
-sudo visudo -f /etc/sudoers.d/openfortivpn
-```
+1. Install openfortivpn: `brew install openfortivpn`
+2. Download the latest `.dmg` from [Releases](../../releases), open it, and drag **OpenFortiMac** to your Applications folder.
 
-Add this line (replace `YOUR_USERNAME` with your macOS username):
-
-```
-YOUR_USERNAME ALL = NOPASSWD: /opt/homebrew/bin/openfortivpn
-```
-
-> Usually the path is `/usr/local/bin/openfortivpn`. Run `which openfortivpn` to check.
-
-### 3. Install the app
-
-#### DMG version
-
-Download the latest `.dmg` from [Releases](../../releases), open it, and drag **OpenFortiMac** to your Applications folder.
-
-#### Build yourself
+### Build yourself
 
 To build from source instead (Xcode required):
 
@@ -51,9 +36,43 @@ chmod +x build_dmg.sh
 ./build_dmg.sh
 ```
 
-### 4. Launch and configure
+### First launch
 
-Open **OpenFortiMac** from Applications. A lock icon will appear in the menu bar. Click it → **Settings** → **Servers** tab → add your VPN servers.
+OpenFortiMac is not notarized by Apple, so macOS blocks it the first time. Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to the OpenFortiMac message. This is needed only once.
+
+### Allow openfortivpn to run as root
+
+openfortivpn needs root privileges to create the VPN tunnel. On first launch OpenFortiMac opens **Settings → General → Administrator Permission**: click **Set Up…** and enter your administrator password once.
+
+The app installs this rule in `/etc/sudoers.d/openfortimac` (validated with `visudo`, owned by root, read-only):
+
+```
+YOUR_USERNAME ALL = (root) NOPASSWD: /opt/homebrew/bin/openfortivpn
+```
+
+Click **Remove** in the same place to delete it.
+
+> **Security note:** with this rule any process running as your user can start openfortivpn as root without a password, and `/opt/homebrew` is writable by your user. This is the usual trade-off for openfortivpn GUIs; remove the rule if you stop using the app.
+
+<details>
+<summary>Manual setup</summary>
+
+```bash
+sudo visudo -f /etc/sudoers.d/openfortimac
+```
+
+Add this line (replace `YOUR_USERNAME` with your macOS username):
+
+```
+YOUR_USERNAME ALL = (root) NOPASSWD: /opt/homebrew/bin/openfortivpn
+```
+
+The path is `/opt/homebrew/bin/openfortivpn` on Apple Silicon and `/usr/local/bin/openfortivpn` on Intel Macs. Run `which openfortivpn` to check.
+</details>
+
+### Configure
+
+A lock icon appears in the menu bar. Click it → **Settings** → **Servers** tab → add your VPN servers.
 
 ## Usage
 
@@ -94,13 +113,27 @@ The `trusted_cert` field is optional. If omitted, the app uses `--trusted-cert=a
 
 **"openfortivpn not found"** — Check the binary path in Settings → General. Run `which openfortivpn` to find yours.
 
-**"sudo: a password is required"** — The sudoers entry is missing or incorrect. See step 2 above.
+**"Administrator permission not set up"** — The sudo rule is missing or points to another openfortivpn path. Open Settings → General → Administrator Permission and click **Set Up…** (or **Update…**).
+
+**"OpenFortiMac is damaged" / "cannot be opened"** — See [First launch](#first-launch).
 
 **Connection fails** — Open Settings → Log tab for details. 
 
 ## Uninstall
 
-1. Quit OpenFortiMac
-2. Delete from Applications: `rm -rf /Applications/OpenFortiMac.app`
-3. Remove config: `rm -rf ~/Library/Application\ Support/OpenFortiMac`
-4. Remove sudoers: `sudo rm /etc/sudoers.d/openfortivpn`
+### Homebrew
+
+```bash
+brew uninstall --cask openfortimac
+```
+
+This also removes `/etc/sudoers.d/openfortimac` (brew asks for your password). Add `--zap` to delete the configuration too.
+
+### Manual
+
+1. Settings → General → Administrator Permission → **Remove**
+2. Quit OpenFortiMac
+3. Delete from Applications: `rm -rf /Applications/OpenFortiMac.app`
+4. Remove config: `rm -rf ~/Library/Application\ Support/OpenFortiMac`
+
+If you followed the manual setup of older versions, also run `sudo rm /etc/sudoers.d/openfortivpn`.

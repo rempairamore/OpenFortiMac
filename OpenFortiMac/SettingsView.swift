@@ -2,36 +2,49 @@ import SwiftUI
 import Combine
 import ServiceManagement
 
+enum SettingsTab {
+    case servers, general, log
+}
+
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     @State private var selectedServer: VPNServer?
     @State private var showingAddServer = false
     @State private var showingEditServer = false
-    @State private var selectedTab = 0
+    @State private var selectedTab: SettingsTab
     @State private var serverToDelete: VPNServer?
     @State private var showingDeleteConfirm = false
-    
+
+    init(initialTab: SettingsTab = .servers) {
+        _selectedTab = State(initialValue: initialTab)
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             serversTab
                 .tabItem {
                     Label("Servers", systemImage: "server.rack")
                 }
-                .tag(0)
-            
+                .tag(SettingsTab.servers)
+
             generalTab
                 .tabItem {
                     Label("General", systemImage: "gearshape")
                 }
-                .tag(1)
-            
+                .tag(SettingsTab.general)
+
             logTab
                 .tabItem {
                     Label("Log", systemImage: "doc.text")
                 }
-                .tag(2)
+                .tag(SettingsTab.log)
         }
         .frame(width: 540, height: 440)
+        .onReceive(NotificationCenter.default.publisher(for: .showSettingsTab)) { notification in
+            if let tab = notification.object as? SettingsTab {
+                selectedTab = tab
+            }
+        }
         .sheet(isPresented: $showingAddServer, onDismiss: { viewModel.loadServers() }) {
             ServerEditView(viewModel: viewModel, server: nil)
         }
@@ -138,7 +151,54 @@ struct SettingsView: View {
                         .foregroundColor(.orange)
                 }
             }
-            
+
+            Section("Administrator Permission") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(sudoersStatusText)
+                        if let detail = sudoersStatusDetail {
+                            Text(detail)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
+
+                    Spacer()
+
+                    if viewModel.sudoersBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    switch viewModel.sudoersStatus {
+                    case .missing:
+                        Button("Set Up…") { viewModel.setUpSudoers() }
+                            .disabled(viewModel.sudoersBusy)
+                    case .outdated:
+                        Button("Update…") { viewModel.setUpSudoers() }
+                            .disabled(viewModel.sudoersBusy)
+                        Button("Remove") { viewModel.removeSudoers() }
+                            .disabled(viewModel.sudoersBusy)
+                    case .managed:
+                        Button("Remove") { viewModel.removeSudoers() }
+                            .disabled(viewModel.sudoersBusy)
+                    default:
+                        EmptyView()
+                    }
+                }
+
+                if let error = viewModel.sudoersError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+
+                Text("openfortivpn needs root to create the tunnel. This sudo rule lets it start without a password prompt; any app running as your user gains the same ability.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             Section("Startup") {
                 Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
             }
@@ -165,7 +225,31 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding(.top, 8)
     }
-    
+
+    private var sudoersStatusText: String {
+        switch viewModel.sudoersStatus {
+        case .none: return "Checking…"
+        case .managed: return "✅ Set up"
+        case .external: return "✅ Allowed by a rule you added manually"
+        case .outdated: return "⚠️ Rule points to a different openfortivpn path"
+        case .missing: return "⚠️ Not set up: connections will fail"
+        case .binaryNotFound: return "openfortivpn not found"
+        }
+    }
+
+    private var sudoersStatusDetail: String? {
+        switch viewModel.sudoersStatus {
+        case .managed, .outdated:
+            return SudoersManager.rulePath
+        case .external:
+            return "Not managed by OpenFortiMac (e.g. /etc/sudoers.d/openfortivpn)"
+        case .missing:
+            return viewModel.resolvedOpenfortivpnPath
+        default:
+            return nil
+        }
+    }
+
     // MARK: - Log Tab
     
     private var logTab: some View {
@@ -419,18 +503,34 @@ class SettingsViewModel: ObservableObject {
         }
     }
     
+    @Published private(set) var sudoersStatus: SudoersStatus?
+    @Published private(set) var sudoersError: String?
+    @Published private(set) var sudoersBusy = false
+    @Published private(set) var resolvedOpenfortivpnPath: String?
+
     var isOpenfortivpnValid: Bool {
         FileManager.default.isExecutableFile(atPath: openfortivpnPath)
     }
-    
+
     private var logsObserver: NSObjectProtocol?
-    
+    private var pathObserver: AnyCancellable?
+
     init() {
         loadServers()
         loadLogs()
         openfortivpnPath = ConfigManager.shared.config.openfortivpnPath
         loadLaunchAtLogin()
-        
+        refreshSudoersStatus()
+
+        // The path is saved on every keystroke, so wait for typing to settle before asking sudo
+        pathObserver = $openfortivpnPath
+            .dropFirst()
+            .removeDuplicates()
+            .debounce(for: .milliseconds(600), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.refreshSudoersStatus()
+            }
+
         logsObserver = NotificationCenter.default.addObserver(
             forName: .vpnStateChanged,
             object: nil,
@@ -492,8 +592,53 @@ class SettingsViewModel: ObservableObject {
         NotificationCenter.default.post(name: .configChanged, object: nil)
     }
     
+    // MARK: - Administrator Permission
+
+    func refreshSudoersStatus() {
+        let path = VPNManager.shared.findOpenfortivpnBinary()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let status = SudoersManager.shared.status(for: path)
+            DispatchQueue.main.async {
+                self?.resolvedOpenfortivpnPath = path
+                self?.sudoersStatus = status
+                NotificationCenter.default.post(name: .sudoersChanged, object: status)
+            }
+        }
+    }
+
+    func setUpSudoers() {
+        guard let path = VPNManager.shared.findOpenfortivpnBinary() else { return }
+        changeSudoers { try SudoersManager.shared.install(binaryPath: path) }
+    }
+
+    func removeSudoers() {
+        changeSudoers { try SudoersManager.shared.remove() }
+    }
+
+    private func changeSudoers(_ change: @escaping () throws -> Void) {
+        sudoersBusy = true
+        sudoersError = nil
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var message: String?
+            do {
+                try change()
+            } catch SudoersError.cancelled {
+                // The user closed the password dialog: nothing to report
+            } catch {
+                message = error.localizedDescription
+            }
+
+            DispatchQueue.main.async {
+                self?.sudoersBusy = false
+                self?.sudoersError = message
+                self?.refreshSudoersStatus()
+            }
+        }
+    }
+
     // MARK: - Launch at Login
-    
+
     private func loadLaunchAtLogin() {
         launchAtLogin = (SMAppService.mainApp.status == .enabled)
     }
