@@ -418,20 +418,73 @@ code {
   height: auto;
 }
 
-/* Menu bar panel screenshot: keep it at its native size instead of upscaling */
+/* Menu bar panel mockup: transparent SVG, shown at its native size without the frame */
 .shot-panel {
-  max-width: 346px;
+  max-width: 356px;
+  border: 0;
+  background: none;
+  overflow: visible;
 }
 
-/* Homebrew install command, selectable in one click */
-.install-cmd {
-  align-items: flex-start;
+.shot-panel::before {
+  display: none;
+}
+
+/* ===== Homebrew install box (first install option) ===== */
+.install-label {
+  font-size: 12px;
+  color: var(--accent);
+  margin-bottom: 10px;
+  opacity: 0;
+  animation: rise 0.5s 0.4s ease forwards;
+}
+
+.install-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 600px;
+  margin-bottom: 18px;
+  padding: 12px 12px 12px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 4px var(--accent-soft), 0 0 32px var(--accent-soft);
+  font-size: 15px;
+  opacity: 0;
+  animation: rise 0.5s 0.45s ease forwards;
+}
+
+.install-text {
+  flex: 1;
+  min-width: 0;
+  font-size: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  padding: 0;
   user-select: all;
-  animation-delay: 0.65s;
+  overflow-wrap: break-word;
 }
 
-.hero .install-cmd {
-  margin-top: -14px;
+.copy-btn {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.copy-btn:hover,
+.copy-btn.is-copied {
+  background: #6effa0;
+  border-color: #6effa0;
 }
 
 /* ============================================================
@@ -636,6 +689,12 @@ footer {
 
   .flag:hover {
     padding-left: 16px;
+  }
+
+  .install-box {
+    font-size: 13px;
+    padding: 10px 10px 10px 14px;
+    gap: 10px;
   }
 
   .topbar-nav {

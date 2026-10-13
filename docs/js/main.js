@@ -61,9 +61,52 @@
     });
   }
 
+  /**
+   * Copy buttons: copy their data-copy text and confirm inline.
+   * Without clipboard access the command gets selected for a manual copy.
+   */
+  function setupCopyButtons() {
+    document.querySelectorAll('.copy-btn[data-copy]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var text = btn.getAttribute('data-copy');
+
+        function showLabel(label) {
+          btn.textContent = label;
+          btn.classList.add('is-copied');
+          setTimeout(function () {
+            btn.textContent = 'copy';
+            btn.classList.remove('is-copied');
+          }, 1600);
+        }
+
+        function confirmCopied() {
+          showLabel('copied');
+        }
+
+        function selectCommand() {
+          var target = btn.parentNode.querySelector('.install-text');
+          if (!target) return;
+          var range = document.createRange();
+          range.selectNodeContents(target);
+          var selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          showLabel('⌘C to copy');
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(confirmCopied, selectCommand);
+        } else {
+          selectCommand();
+        }
+      });
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     updateYear();
     setupScrollReveal();
     setupSmoothScroll();
+    setupCopyButtons();
   });
 })();
