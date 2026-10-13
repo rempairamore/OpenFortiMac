@@ -11,7 +11,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 60
     permissions:
       security-events: write
@@ -30,8 +30,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Select Xcode 26
+        shell: bash
+        run: |
+          shopt -s nullglob
+          candidates=(/Applications/Xcode_26*.app)
+          if [ ${#candidates[@]} -gt 0 ]; then
+            sudo xcode-select -s "$(printf '%s\n' "${candidates[@]}" | sort -V | tail -n 1)"
+          fi
+          xcodebuild -version
+          # The project uses Swift settings introduced in Xcode 26
+          xcodebuild -version | head -n 1 | grep -Eq '^Xcode (2[6-9]|[3-9][0-9])' \
+            || { echo "::error::Xcode 26 or later is required"; ls /Applications; exit 1; }
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@89a39a4e59826350b863aa6b6252a07ad50cf83e # v4.32.4

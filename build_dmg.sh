@@ -29,12 +29,17 @@ rm -rf "$BUILD_DIR"
 rm -rf "$DMG_DIR"
 rm -f "$DMG_NAME"
 
-# Build the app with symbols stripped
+# Build a universal (arm64 + x86_64) app with symbols stripped.
+# Ad-hoc signing needs no certificate, so the same build runs locally and on CI.
 echo "📦 Compiling..."
 xcodebuild -project "$APP_NAME.xcodeproj" \
     -scheme "$APP_NAME" \
     -configuration Release \
+    -destination 'generic/platform=macOS' \
     -derivedDataPath "$BUILD_DIR" \
+    CODE_SIGN_IDENTITY=- \
+    CODE_SIGN_STYLE=Manual \
+    DEVELOPMENT_TEAM= \
     STRIP_INSTALLED_PRODUCT=YES \
     DEPLOYMENT_POSTPROCESSING=YES \
     DEAD_CODE_STRIPPING=YES \
@@ -75,3 +80,13 @@ echo ""
 echo "Homebrew cask values (homebrew-tap/Casks/openfortimac.rb):"
 echo "  version \"$VERSION\""
 echo "  sha256 \"$SHA256\""
+
+# Hand the results to the next GitHub Actions steps
+if [ -n "$GITHUB_OUTPUT" ]; then
+    {
+        echo "version=$VERSION"
+        echo "dmg=$DMG_NAME"
+        echo "sha256=$SHA256"
+        echo "app=$APP_PATH"
+    } >> "$GITHUB_OUTPUT"
+fi
