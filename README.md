@@ -45,6 +45,8 @@ gh attestation verify OpenFortiMac_v1.3.1.dmg -R rempairamore/OpenFortiMac
 
 Homebrew checks the same SHA-256 before installing.
 
+Releases are signed with the self-signed certificate "OpenFortiMac Self-Signed" (SHA-1 `7F:43:4F:39:7A:3D:70:CD:9A:0E:9F:74:C0:5D:30:E8:08:04:F1:AA`). It is not an Apple certificate, so Gatekeeper still asks you to confirm the first launch, but it keeps the app's identity stable: macOS does not ask for Keychain access again after updates. Check it with `codesign -dvv /Applications/OpenFortiMac.app`.
+
 ### First launch
 
 OpenFortiMac is not notarized by Apple, so macOS blocks it the first time. Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to the OpenFortiMac message. This is needed only once.
@@ -162,4 +164,10 @@ If you followed the manual setup of older versions, also run `sudo rm /etc/sudoe
 
 When `main` gets a version that has no tag yet, the [Release workflow](.github/workflows/release.yml) builds a universal DMG, attests its provenance, scans it on VirusTotal, publishes the GitHub release (creating the `vX.Y.Z` tag) and updates [homebrew-tap](https://github.com/rempairamore/homebrew-tap) through a pull request that it merges itself once `brew style` and `brew audit` pass. `brew upgrade` users get the new version right away.
 
-To try a build without shipping it, push a tag with a suffix (for example `v1.3.2-rc.1`): it creates a pre-release and skips Homebrew. The workflow needs two repository secrets: `VIRUSTOTAL_API_KEY` and `HOMEBREW_TAP_TOKEN` (fine-grained token with *Contents* and *Pull requests* write access to `homebrew-tap` only).
+To try a build without shipping it, push a tag with a suffix (for example `v1.3.2-rc.1`): it creates a pre-release and skips Homebrew. The workflow needs these repository secrets:
+
+- `SIGNING_CERT_P12` (base64 of the certificate's `.p12`) and `SIGNING_CERT_PASSWORD`: releases fail without them, and the workflow checks the app is signed with the certificate whose SHA-1 is in `EXPECTED_CERT_SHA1`
+- `VIRUSTOTAL_API_KEY`
+- `HOMEBREW_TAP_TOKEN`: fine-grained token with *Contents* and *Pull requests* write access to `homebrew-tap` only
+
+Local builds use the certificate when it is in your keychain and fall back to an ad-hoc signature otherwise.
