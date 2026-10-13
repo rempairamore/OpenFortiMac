@@ -6,7 +6,7 @@ A native macOS menu bar app for managing [OpenFortiVPN](https://github.com/adrie
 
 Passwords are stored in the macOS Keychain.
 
-![Menu bar panel, not connected](/img/openfortimac-1-not-connected.png) ![Menu bar panel, connected](/img/openfortimac-2-connected.png)
+![Menu bar panel, not connected](/img/openfortimac-panel-disconnected.svg) ![Menu bar panel, connected](/img/openfortimac-panel-connected.svg)
 
 
 ## Installation
