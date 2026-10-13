@@ -109,10 +109,15 @@ jobs:
           if [ ${#candidates[@]} -gt 0 ]; then
             sudo xcode-select -s "$(printf '%s\n' "${candidates[@]}" | sort -V | tail -n 1)"
           fi
-          xcodebuild -version
+          # Read the whole output first: piping xcodebuild into head/grep -q can kill it with SIGPIPE
+          XCODE_VERSION=$(xcodebuild -version)
+          echo "$XCODE_VERSION"
           # The project uses Swift settings introduced in Xcode 26
-          xcodebuild -version | head -n 1 | grep -Eq '^Xcode (2[6-9]|[3-9][0-9])' \
-            || { echo "::error::Xcode 26 or later is required"; ls /Applications; exit 1; }
+          if [[ ! "$XCODE_VERSION" =~ ^Xcode\ (2[6-9]|[3-9][0-9]) ]]; then
+            echo "::error::Xcode 26 or later is required"
+            ls /Applications
+            exit 1
+          fi
 
       - name: Build universal DMG
         id: build
