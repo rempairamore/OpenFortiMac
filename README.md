@@ -6,7 +6,7 @@ A native macOS menu bar app for managing [OpenFortiVPN](https://github.com/adrie
 
 Passwords are stored in the macOS Keychain.
 
-![Menu bar panel, not connected](/img/openfortimac-panel-disconnected.svg) ![Menu bar panel, connected](/img/openfortimac-panel-connected.svg)
+<img src="docs/assets/openfortimac-panel-demo.gif" width="356" alt="Click the OpenFortiMac menu bar icon, then Connect on a server: the panel shows Connecting and then Connected with the tunnel IP">
 
 
 ## Installation
@@ -171,3 +171,5 @@ To try a build without shipping it, push a tag with a suffix (for example `v1.3.
 - `HOMEBREW_TAP_TOKEN`: fine-grained token with *Contents* and *Pull requests* write access to `homebrew-tap` only
 
 Local builds use the certificate when it is in your keychain and fall back to an ad-hoc signature otherwise.
+
+The demo GIF at the top of this README is generated with `python3 scripts/make_panel_demo.py` (macOS and ffmpeg required) from example data.

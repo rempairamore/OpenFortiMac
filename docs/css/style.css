@@ -418,7 +418,7 @@ code {
   height: auto;
 }
 
-/* Menu bar panel mockup: transparent SVG, shown at its native size without the frame */
+/* Menu bar panel demo: drawn on the page background, shown at 1x of its 2x pixels without the frame */
 .shot-panel {
   max-width: 356px;
   border: 0;
