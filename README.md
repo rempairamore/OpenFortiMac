@@ -26,7 +26,7 @@ This installs the app and [openfortivpn](https://formulae.brew.sh/formula/openfo
 
 ### Build yourself
 
-To build from source instead (Xcode required):
+To build from source instead (Xcode 26 or later required):
 
 ```bash
 git clone https://github.com/rempairamore/OpenFortiMac.git
@@ -34,6 +34,16 @@ cd OpenFortiMac
 chmod +x build_dmg.sh
 ./build_dmg.sh
 ```
+
+### Verify your download
+
+Releases are built by [GitHub Actions](.github/workflows/release.yml) from the tagged commit, not on a developer machine. Each release lists the DMG's SHA-256 and a VirusTotal report. To check that the DMG you downloaded is exactly the one built from this repository (needs the [GitHub CLI](https://cli.github.com)):
+
+```bash
+gh attestation verify OpenFortiMac_v1.3.1.dmg -R rempairamore/OpenFortiMac
+```
+
+Homebrew checks the same SHA-256 before installing.
 
 ### First launch
 
@@ -144,3 +154,11 @@ This also removes `/etc/sudoers.d/openfortimac` (brew asks for your password). A
 4. Remove config: `rm -rf ~/Library/Application\ Support/OpenFortiMac`
 
 If you followed the manual setup of older versions, also run `sudo rm /etc/sudoers.d/openfortivpn`.
+
+## Releasing
+
+1. Bump `MARKETING_VERSION` in Xcode and add a `## vX.Y.Z` section to `CHANGELOG.md`.
+2. Merge to `main`, then push a tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. The [Release workflow](.github/workflows/release.yml) builds a universal DMG, attests its provenance, scans it on VirusTotal, publishes the GitHub release and opens a pull request on [homebrew-tap](https://github.com/rempairamore/homebrew-tap) with the new checksum. Merge that pull request to ship the update to Homebrew users.
+
+A tag with a suffix (for example `v1.3.1-rc.1`) creates a pre-release and skips Homebrew. The workflow needs two repository secrets: `VIRUSTOTAL_API_KEY` and `HOMEBREW_TAP_TOKEN` (fine-grained token with *Contents* and *Pull requests* write access to `homebrew-tap` only).

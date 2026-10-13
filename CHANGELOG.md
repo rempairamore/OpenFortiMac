@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.1
+
+### Added
+- Releases are built by GitHub Actions with signed build provenance (`gh attestation verify`) and a VirusTotal report
+
+### Fixed
+- Universal binary: the app now runs on Intel Macs too (1.3.0 was Apple Silicon only)
+
 ## v1.3.0
 
 ### Added

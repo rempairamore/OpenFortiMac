@@ -1,0 +1,216 @@
+name: "Release"
+
+# Tags v* build, attest, scan and publish a release, then open a PR on the Homebrew tap.
+# Pull requests only build the DMG and upload it as an artifact.
+on:
+  push:
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "OpenFortiMac/**"
+      - "OpenFortiMac.xcodeproj/**"
+      - "build_dmg.sh"
+      - ".github/workflows/release.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    name: ${{ startsWith(github.ref, 'refs/tags/v') && 'Build and release' || 'Build' }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: write       # create the GitHub release
+      id-token: write       # sign the build provenance with Sigstore
+      attestations: write   # store the attestation on GitHub
+    env:
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode 26
+        run: |
+          shopt -s nullglob
+          candidates=(/Applications/Xcode_26*.app)
+          if [ ${#candidates[@]} -gt 0 ]; then
+            sudo xcode-select -s "$(printf '%s\n' "${candidates[@]}" | sort -V | tail -n 1)"
+          fi
+          xcodebuild -version
+          # The project uses Swift settings introduced in Xcode 26
+          xcodebuild -version | head -n 1 | grep -Eq '^Xcode (2[6-9]|[3-9][0-9])' \
+            || { echo "::error::Xcode 26 or later is required"; ls /Applications; exit 1; }
+
+      - name: Build universal DMG
+        id: build
+        run: ./build_dmg.sh
+
+      - name: Check architectures and signature
+        env:
+          APP: ${{ steps.build.outputs.app }}
+        run: |
+          ARCHS=$(lipo -archs "$APP/Contents/MacOS/OpenFortiMac")
+          echo "Architectures: $ARCHS"
+          if [[ "$ARCHS" != *arm64* || "$ARCHS" != *x86_64* ]]; then
+            echo "::error::Expected a universal binary, got: $ARCHS"
+            exit 1
+          fi
+          codesign --verify --deep --strict "$APP"
+
+      - name: Check tag matches app version
+        if: env.IS_TAG == 'true'
+        env:
+          VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          # v1.3.1-rc.1 is a test build of 1.3.1
+          if [ "${TAG_VERSION%%-*}" != "$VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match MARKETING_VERSION $VERSION"
+            exit 1
+          fi
+
+      - name: Upload DMG artifact
+        if: env.IS_TAG != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.build.outputs.dmg }}
+          path: ${{ steps.build.outputs.dmg }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Attest build provenance
+        if: env.IS_TAG == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.build.outputs.dmg }}
+
+      - name: Scan with VirusTotal
+        id: virustotal
+        if: env.IS_TAG == 'true'
+        # A VirusTotal outage must not block the release
+        continue-on-error: true
+        env:
+          VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+          DMG: ${{ steps.build.outputs.dmg }}
+          SHA256: ${{ steps.build.outputs.sha256 }}
+        run: |
+          if [ -z "$VT_API_KEY" ]; then
+            echo "::warning::VIRUSTOTAL_API_KEY is not set, skipping the scan"
+            exit 0
+          fi
+
+          ANALYSIS_ID=$(curl -sS --fail-with-body -X POST "https://www.virustotal.com/api/v3/files" \
+            -H "x-apikey: $VT_API_KEY" -F "file=@$DMG" | jq -r '.data.id')
+          LINK="https://www.virustotal.com/gui/file/$SHA256"
+          echo "link=$LINK" >> "$GITHUB_OUTPUT"
+
+          # The free API allows 4 requests per minute: poll every 30s for up to 3 minutes
+          STATS=""
+          for _ in 1 2 3 4 5 6; do
+            sleep 30
+            RESULT=$(curl -sS --fail-with-body "https://www.virustotal.com/api/v3/analyses/$ANALYSIS_ID" \
+              -H "x-apikey: $VT_API_KEY")
+            if [ "$(jq -r '.data.attributes.status' <<< "$RESULT")" = "completed" ]; then
+              STATS=$(jq -r '.data.attributes.stats | "\(.malicious) malicious, \(.suspicious) suspicious, \(.undetected) undetected"' <<< "$RESULT")
+              break
+            fi
+          done
+
+          {
+            echo "### VirusTotal"
+            echo "[$LINK]($LINK): ${STATS:-analysis still running}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish GitHub release
+        if: env.IS_TAG == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.build.outputs.version }}
+          DMG: ${{ steps.build.outputs.dmg }}
+          SHA256: ${{ steps.build.outputs.sha256 }}
+          VT_LINK: ${{ steps.virustotal.outputs.link }}
+        run: |
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo "## Install"
+            echo
+            echo '```bash'
+            echo "brew install --cask rempairamore/tap/openfortimac"
+            echo '```'
+            echo
+            echo "Or download \`$DMG\` below. The app is not notarized: on first launch open **System Settings → Privacy & Security** and click **Open Anyway**, then **Settings → Permission → Set Up…**."
+            echo
+            # This version's CHANGELOG section, headings promoted one level
+            awk -v heading="## v$VERSION" '$0 == heading {found=1; next} found && /^## v/ {exit} found' CHANGELOG.md \
+              | sed 's/^### /## /'
+            echo
+            echo "## Verify this download"
+            echo
+            echo "Built by [GitHub Actions]($RUN_URL) from the tagged commit."
+            echo
+            echo "- SHA-256: \`$SHA256\`"
+            echo "- Build provenance: \`gh attestation verify $DMG -R $GITHUB_REPOSITORY\`"
+            if [ -n "$VT_LINK" ]; then
+              echo "- VirusTotal: $VT_LINK"
+            fi
+          } > release-notes.md
+
+          ARGS=(--verify-tag --title "$GITHUB_REF_NAME" --notes-file release-notes.md)
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            ARGS+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" "$DMG" "${ARGS[@]}"
+
+      - name: Open pull request on the Homebrew tap
+        # Test tags like v1.3.1-rc.1 never reach Homebrew users
+        if: env.IS_TAG == 'true' && !contains(github.ref_name, '-')
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.build.outputs.version }}
+          SHA256: ${{ steps.build.outputs.sha256 }}
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN is not set: update the cask by hand (version $VERSION, sha256 $SHA256)"
+            exit 0
+          fi
+
+          BRANCH="openfortimac-$VERSION"
+          git clone --quiet "https://x-access-token:${TAP_TOKEN}@github.com/rempairamore/homebrew-tap.git" tap
+          cd tap
+          git switch --quiet -c "$BRANCH"
+          sed -i '' -E \
+            -e "s/^  version \".*\"$/  version \"$VERSION\"/" \
+            -e "s/^  sha256 \".*\"$/  sha256 \"$SHA256\"/" \
+            Casks/openfortimac.rb
+          if git diff --quiet; then
+            echo "::error::Casks/openfortimac.rb did not change"
+            exit 1
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -am "openfortimac $VERSION"
+
+          # Lint the cask and audit it against the release published above
+          brew style Casks/openfortimac.rb
+          brew tap rempairamore/tap "$PWD"
+          brew audit --cask --strict --online rempairamore/tap/openfortimac
+
+          git push --quiet origin "$BRANCH"
+          GH_TOKEN="$TAP_TOKEN" gh pr create --repo rempairamore/homebrew-tap --base main --head "$BRANCH" \
+            --title "openfortimac $VERSION" \
+            --body "Automated update for $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME (sha256 \`$SHA256\`, build provenance attested)."
