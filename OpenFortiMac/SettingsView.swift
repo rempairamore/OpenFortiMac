@@ -77,6 +77,9 @@ struct SettingsView: View {
         .sheet(isPresented: $showingEditServer, onDismiss: { viewModel.loadServers() }) {
             if let server = selectedServer {
                 ServerEditView(viewModel: viewModel, server: server)
+                    // A new form per server: opening another server while the sheet is up
+                    // must not keep the previous server's fields
+                    .id(server.id)
             }
         }
         .alert("Delete Server", isPresented: $showingDeleteConfirm, presenting: serverToDelete) { server in
