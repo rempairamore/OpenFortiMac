@@ -21,7 +21,7 @@ extension CommandLineTool {
     static let valueOptions: Set<String> = [
         "--name", "--host", "--port", "--user", "--username", "--cert", "--icon",
         "--route", "--add-route", "--remove-route",
-        "--allow-multiple", "--openfortivpn-path"
+        "--allow-multiple", "--openfortivpn-path", "--menu-bar-icon"
     ]
 
     static func parseOptions(_ args: [String]) -> Options? {
@@ -271,6 +271,13 @@ extension CommandLineTool {
             ConfigManager.shared.saveAllowMultipleConnections(enabled)
             changed = true
         }
+        if let value = options.value("--menu-bar-icon") {
+            guard let style = MenuBarIconStyle(rawValue: value.lowercased()) else {
+                return usage("--menu-bar-icon takes classic or monochrome")
+            }
+            ConfigManager.shared.saveMenuBarIconStyle(style)
+            changed = true
+        }
         if let path = options.value("--openfortivpn-path") {
             guard FileManager.default.isExecutableFile(atPath: path) else {
                 printError("not an executable: \(path)")
@@ -285,11 +292,13 @@ extension CommandLineTool {
         if json {
             return printJSON([
                 "allow_multiple_connections": config.allowMultipleConnections,
+                "menu_bar_icon": config.menuBarIconStyle.rawValue,
                 "openfortivpn_path": config.openfortivpnPath,
                 "config_file": ConfigManager.configPath.path
             ] as [String: Any])
         }
         print(pad("Allow multiple connections:", 29) + (config.allowMultipleConnections ? "on" : "off"))
+        print(pad("Menu bar icon:", 29) + config.menuBarIconStyle.rawValue)
         print(pad("openfortivpn:", 29) + config.openfortivpnPath)
         print(pad("Config file:", 29) + ConfigManager.configPath.path)
         return 0

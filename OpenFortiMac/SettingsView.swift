@@ -354,6 +354,19 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
             
+            Section {
+                Picker("Menu bar icon", selection: $viewModel.menuBarIconStyle) {
+                    Text("Classic").tag(MenuBarIconStyle.classic)
+                    Text("Monochrome").tag(MenuBarIconStyle.monochrome)
+                }
+            } header: {
+                Text("Appearance")
+            } footer: {
+                Text("Classic shows a lock that turns green when connected. Monochrome shows a shield that follows the menu bar appearance and the number of connected tunnels.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
             Section("Startup") {
                 Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
             }
@@ -732,6 +745,14 @@ class SettingsViewModel: ObservableObject {
             }
         }
     }
+    @Published var menuBarIconStyle: MenuBarIconStyle = .classic {
+        didSet {
+            if oldValue != menuBarIconStyle {
+                ConfigManager.shared.saveMenuBarIconStyle(menuBarIconStyle)
+                NotificationCenter.default.post(name: .configChanged, object: nil)
+            }
+        }
+    }
     @Published var launchAtLogin: Bool = false {
         didSet {
             if oldValue != launchAtLogin {
@@ -758,6 +779,7 @@ class SettingsViewModel: ObservableObject {
         loadLogs()
         openfortivpnPath = ConfigManager.shared.config.openfortivpnPath
         allowMultipleConnections = ConfigManager.shared.config.allowMultipleConnections
+        menuBarIconStyle = ConfigManager.shared.config.menuBarIconStyle
         loadLaunchAtLogin()
         refreshSudoersStatus()
 
@@ -780,6 +802,7 @@ class SettingsViewModel: ObservableObject {
             self.loadServers()
             self.refreshID = UUID()
             self.allowMultipleConnections = config.allowMultipleConnections
+            self.menuBarIconStyle = config.menuBarIconStyle
             self.openfortivpnPath = config.openfortivpnPath
         }
 

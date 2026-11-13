@@ -50,6 +50,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             object: nil
         )
 
+        // The icon style is a setting
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(vpnStateChanged),
+            name: .configChanged,
+            object: nil
+        )
+
         installSignalHandler()
         cliBridge.start()
         vpnManager.connectAutoStartServers()
@@ -161,7 +169,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func updateStatusIcon() {
         guard let button = statusItem.button else { return }
-        let image = StatusIcon.image(connected: vpnManager.connectedCount, busy: vpnManager.busyCount)
+        let image = StatusIcon.image(
+            connected: vpnManager.connectedCount,
+            busy: vpnManager.busyCount,
+            style: configManager.config.menuBarIconStyle
+        )
         button.image = image
         button.toolTip = vpnManager.tunnels.isEmpty
             ? "OpenFortiMac: not connected"

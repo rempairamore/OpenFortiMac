@@ -83,7 +83,7 @@ The path is `/opt/homebrew/bin/openfortivpn` on Apple Silicon and `/usr/local/bi
 
 ### Configure
 
-A shield icon appears in the menu bar. Click it → **Settings** → **Servers** tab → add your VPN servers.
+A lock icon appears in the menu bar. Click it → **Settings** → **Servers** tab → add your VPN servers.
 
 ## Usage
 
@@ -97,7 +97,13 @@ If the administrator permission is missing, a banner in the panel links to **Set
 
 Each server can have its own icon, chosen in the server editor.
 
-The menu bar icon is a monochrome shield that follows the menu bar appearance:
+| Icon | Status |
+|------|--------|
+| 🔓 | Disconnected |
+| 🔄 | Connecting / Disconnecting |
+| 🔒 (green) | Connected |
+
+**Settings → General → Menu bar icon → Monochrome** switches to a template shield that follows the menu bar appearance and shows how many tunnels are up:
 
 | Icon | Status |
 |------|--------|
@@ -140,7 +146,7 @@ openfortimac add "Branch" --host vpn.example.com --port 10443 --user me --passwo
 openfortimac edit branch --add-route 10.40.0.0/16 --auto-connect --auto-reconnect
 openfortimac show branch
 openfortimac remove branch --yes      # also deletes the saved password
-openfortimac settings --allow-multiple on
+openfortimac settings --allow-multiple on --menu-bar-icon monochrome
 openfortimac permission update        # sudo rule incl. static routes (admin dialog)
 ```
 
@@ -172,6 +178,7 @@ Optional fields, written only when used:
 | Field | Where | Meaning |
 |-------|-------|---------|
 | `allow_multiple_connections` | top level | Run several tunnels at once (default `false`) |
+| `menu_bar_icon` | top level | `classic` (default) or `monochrome` |
 | `no_routes_dns` | server | Pass `--no-routes --no-dns` (default `false`) |
 | `static_routes` | server | CIDRs routed through the tunnel's ppp interface, e.g. `["10.20.30.0/24"]` |
 | `auto_connect` | server | Connect when OpenFortiMac starts (default `false`) |

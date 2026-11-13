@@ -6,6 +6,7 @@ final class PanelViewModel: ObservableObject {
     @Published private(set) var servers: [VPNServer] = []
     @Published private(set) var serversWithoutPassword: Set<String> = []
     @Published private(set) var sudoersStatus: SudoersStatus?
+    @Published private(set) var iconStyle: MenuBarIconStyle = .classic
 
     /// Wired by AppDelegate, which owns the windows
     var openSettings: (SettingsTab?, ServerEditorRequest?) -> Void = { _, _ in }
@@ -41,6 +42,7 @@ final class PanelViewModel: ObservableObject {
 
     func loadServers() {
         servers = ConfigManager.shared.config.servers
+        iconStyle = ConfigManager.shared.config.menuBarIconStyle
         // Cached here so the panel does not hit the Keychain on every redraw
         serversWithoutPassword = Set(servers.filter { KeychainHelper.read(for: $0.id)?.isEmpty ?? true }.map(\.id))
     }

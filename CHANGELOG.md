@@ -10,9 +10,9 @@
 - `openfortimac` command line tool (the app executable): list, status, connect, disconnect, logs, add, edit, remove, show, settings, permission
 - Log file at `~/Library/Logs/OpenFortiMac/openfortimac.log`
 - Right-click menu: connect any idle server
+- Optional monochrome menu bar icon (Settings → General → Menu bar icon): a template shield that shows the number of connected tunnels; the classic lock stays the default
 
 ### Changed
-- Menu bar icon: monochrome template shield that shows the number of connected tunnels, instead of a green lock
 - Quitting disconnects all tunnels first, whatever the way of quitting (menu, `brew uninstall`, logout, SIGTERM)
 - The temporary openfortivpn config (with the password) is deleted as soon as the tunnel is up
 

@@ -39,7 +39,7 @@ struct MenuPanelView: View {
             TunnelCard(
                 title: "Not connected",
                 subtitle: AnyView(Text("Choose a server to connect")),
-                icon: "shield",
+                icon: VPNState.disconnected.iconSymbol(style: model.iconStyle),
                 tint: .secondary,
                 busy: false,
                 details: nil,
@@ -52,7 +52,7 @@ struct MenuPanelView: View {
                     TunnelCard(
                         title: tunnel.serverName,
                         subtitle: TunnelCard.subtitle(for: tunnel),
-                        icon: tunnel.state.iconSymbol,
+                        icon: tunnel.state.iconSymbol(style: model.iconStyle),
                         tint: tunnel.state.tint,
                         busy: tunnel.isBusy,
                         details: tunnelDetails(tunnel),
@@ -193,11 +193,15 @@ struct MenuPanelView: View {
 // MARK: - State helpers
 
 extension VPNState {
-    var iconSymbol: String {
-        switch self {
-        case .disconnected: return "shield"
-        case .connecting, .disconnecting, .reconnecting: return "shield.lefthalf.filled"
-        case .connected: return "checkmark.shield.fill"
+    /// Status card symbol, matching the menu bar icon style.
+    func iconSymbol(style: MenuBarIconStyle) -> String {
+        switch (self, style) {
+        case (.disconnected, .classic): return "lock.open"
+        case (.connecting, .classic), (.disconnecting, .classic), (.reconnecting, .classic): return "arrow.triangle.2.circlepath"
+        case (.connected, .classic): return "lock.fill"
+        case (.disconnected, .monochrome): return "shield"
+        case (.connecting, .monochrome), (.disconnecting, .monochrome), (.reconnecting, .monochrome): return "shield.lefthalf.filled"
+        case (.connected, .monochrome): return "checkmark.shield.fill"
         }
     }
 

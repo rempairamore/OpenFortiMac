@@ -75,6 +75,12 @@ class ConfigManager {
         saveConfig(newConfig)
     }
     
+    func saveMenuBarIconStyle(_ style: MenuBarIconStyle) {
+        var newConfig = config
+        newConfig.menuBarIconStyle = style
+        saveConfig(newConfig)
+    }
+    
     func saveAllowMultipleConnections(_ allowed: Bool) {
         var newConfig = config
         newConfig.allowMultipleConnections = allowed

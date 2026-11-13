@@ -1,8 +1,10 @@
 import AppKit
 
-/// Draws the menu bar icon: a monochrome template shield, so it follows the
-/// menu bar appearance like system icons do instead of being tinted green.
+/// Draws the menu bar icon in the style chosen in Settings › General.
 ///
+/// Classic: open lock, arrows while connecting, green lock when connected.
+///
+/// Monochrome: a template shield that follows the menu bar appearance like system icons:
 /// - no tunnel: outlined shield
 /// - connecting (nothing up yet): half-filled shield
 /// - one tunnel up: shield with a checkmark
@@ -11,7 +13,42 @@ import AppKit
 enum StatusIcon {
     static let size = NSSize(width: 18, height: 18)
 
-    static func image(connected: Int, busy: Int) -> NSImage {
+    static func image(connected: Int, busy: Int, style: MenuBarIconStyle) -> NSImage {
+        switch style {
+        case .classic: return classic(connected: connected, busy: busy)
+        case .monochrome: return monochrome(connected: connected, busy: busy)
+        }
+    }
+
+    private static func classic(connected: Int, busy: Int) -> NSImage {
+        let symbolName: String
+        let description: String
+
+        if connected > 0 {
+            symbolName = "lock.fill"
+            description = connected == 1 ? "Connected" : "Connected: \(connected) tunnels"
+        } else if busy > 0 {
+            symbolName = "arrow.triangle.2.circlepath"
+            description = "In progress"
+        } else {
+            symbolName = "lock.open"
+            description = "Disconnected"
+        }
+
+        guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description) else {
+            return NSImage()
+        }
+        image.isTemplate = true
+
+        // Tint green when connected
+        guard connected > 0 else { return image }
+        let config = NSImage.SymbolConfiguration(paletteColors: [.systemGreen])
+        let tinted = image.withSymbolConfiguration(config) ?? image
+        tinted.isTemplate = false
+        return tinted
+    }
+
+    private static func monochrome(connected: Int, busy: Int) -> NSImage {
         let symbolName: String
         let description: String
         var count: String?
