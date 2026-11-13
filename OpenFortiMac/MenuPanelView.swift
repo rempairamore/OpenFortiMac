@@ -10,7 +10,7 @@ struct MenuPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            StatusCard(vpn: vpn, onDisconnect: model.disconnect)
+            tunnelCards
                 .padding(12)
 
             if let banner = setupBanner {
@@ -31,6 +31,55 @@ struct MenuPanelView: View {
         .frame(width: 320)
     }
 
+    // MARK: - Tunnel cards (one per active tunnel)
+
+    @ViewBuilder
+    private var tunnelCards: some View {
+        if vpn.tunnels.isEmpty {
+            TunnelCard(
+                title: "Not connected",
+                subtitle: AnyView(Text("Choose a server to connect")),
+                icon: "shield",
+                tint: .secondary,
+                busy: false,
+                details: nil,
+                onDisconnect: nil,
+                disconnectShortcut: false
+            )
+        } else {
+            VStack(spacing: 8) {
+                ForEach(vpn.tunnels) { tunnel in
+                    TunnelCard(
+                        title: tunnel.serverName,
+                        subtitle: TunnelCard.subtitle(for: tunnel),
+                        icon: tunnel.state.iconSymbol,
+                        tint: tunnel.state.tint,
+                        busy: tunnel.isBusy,
+                        details: tunnelDetails(tunnel),
+                        onDisconnect: { model.disconnect(serverID: tunnel.serverID) },
+                        // ⌘D stays unambiguous: only with a single tunnel
+                        disconnectShortcut: vpn.tunnels.count == 1
+                    )
+                }
+            }
+        }
+    }
+
+    private func tunnelDetails(_ tunnel: TunnelStatus) -> [TunnelCardDetail]? {
+        guard tunnel.isConnected else { return nil }
+        var details: [TunnelCardDetail] = []
+        if let ip = tunnel.assignedIP {
+            details.append(TunnelCardDetail(systemImage: "network", text: ip))
+        }
+        if let iface = tunnel.interface {
+            details.append(TunnelCardDetail(systemImage: "cable.connector", text: iface))
+        }
+        if !tunnel.routes.isEmpty {
+            details.append(TunnelCardDetail(systemImage: "arrow.triangle.branch", text: tunnel.routes.joined(separator: ", ")))
+        }
+        return details.isEmpty ? nil : details
+    }
+
     // MARK: - Setup banner
 
     private var setupBanner: SetupBanner? {
@@ -40,6 +89,12 @@ struct MenuPanelView: View {
                 title: "Administrator permission not set up",
                 detail: "openfortivpn needs it to start the tunnel.",
                 action: "Set up"
+            ) { model.openSettings(.permission, nil) }
+        case .routesMissing:
+            return SetupBanner(
+                title: "Static routes need permission",
+                detail: "Update the rule so routes can be added.",
+                action: "Update"
             ) { model.openSettings(.permission, nil) }
         case .outdated:
             return SetupBanner(
@@ -98,11 +153,10 @@ struct MenuPanelView: View {
             ForEach(model.servers) { server in
                 PanelServerRow(
                     server: server,
-                    isActive: vpn.currentServer?.id == server.id,
-                    canConnect: vpn.state == .disconnected,
+                    tunnel: vpn.status(for: server.id),
                     hasPassword: !model.serversWithoutPassword.contains(server.id)
                 ) {
-                    model.connect(server)
+                    model.toggle(server)
                 }
             }
         }
@@ -136,11 +190,42 @@ struct MenuPanelView: View {
     }
 }
 
-// MARK: - Status Card
+// MARK: - State helpers
 
-private struct StatusCard: View {
-    @ObservedObject var vpn: VPNManager
-    let onDisconnect: () -> Void
+extension VPNState {
+    var iconSymbol: String {
+        switch self {
+        case .disconnected: return "shield"
+        case .connecting, .disconnecting, .reconnecting: return "shield.lefthalf.filled"
+        case .connected: return "checkmark.shield.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .connected: return .green
+        case .connecting, .disconnecting, .reconnecting: return .orange
+        case .disconnected: return .secondary
+        }
+    }
+}
+
+// MARK: - Tunnel Card
+
+private struct TunnelCardDetail {
+    let systemImage: String
+    let text: String
+}
+
+private struct TunnelCard: View {
+    let title: String
+    let subtitle: AnyView
+    let icon: String
+    let tint: Color
+    let busy: Bool
+    let details: [TunnelCardDetail]?
+    let onDisconnect: (() -> Void)?
+    let disconnectShortcut: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -148,11 +233,11 @@ private struct StatusCard: View {
                 ZStack {
                     Circle()
                         .fill(tint.opacity(0.18))
-                    if isBusy {
+                    if busy {
                         ProgressView()
                             .controlSize(.small)
                     } else {
-                        Image(systemName: isConnected ? "lock.fill" : "lock.open")
+                        Image(systemName: icon)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(tint)
                     }
@@ -170,76 +255,65 @@ private struct StatusCard: View {
 
                 Spacer(minLength: 8)
 
-                switch vpn.state {
-                case .connected:
-                    Button("Disconnect", action: onDisconnect)
-                        .keyboardShortcut("d", modifiers: .command)
-                case .connecting:
-                    Button("Cancel", action: onDisconnect)
-                default:
-                    EmptyView()
+                if let onDisconnect = onDisconnect {
+                    if busy {
+                        Button("Cancel", action: onDisconnect)
+                    } else {
+                        Button("Disconnect", action: onDisconnect)
+                            .keyboardShortcut(disconnectShortcut ? KeyboardShortcut("d", modifiers: .command) : nil)
+                    }
                 }
             }
 
-            if isConnected, let server = vpn.currentServer {
-                HStack(spacing: 12) {
-                    if let ip = vpn.assignedIP {
-                        Label(ip, systemImage: "network")
+            if let details = details {
+                // Short facts side by side, routes (possibly long) on their own line
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 12) {
+                        ForEach(details.filter { $0.systemImage != "arrow.triangle.branch" }, id: \.systemImage) { detail in
+                            Label(detail.text, systemImage: detail.systemImage)
+                        }
                     }
-                    Label("\(server.host):\(server.port)", systemImage: "globe")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    ForEach(details.filter { $0.systemImage == "arrow.triangle.branch" }, id: \.systemImage) { detail in
+                        Label(detail.text, systemImage: detail.systemImage)
+                            .lineLimit(2)
+                    }
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .textSelection(.enabled)
             }
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.primary.opacity(0.04))
+        )
     }
 
-    private var isConnected: Bool {
-        if case .connected = vpn.state { return true }
-        return false
-    }
-
-    private var isBusy: Bool {
-        vpn.state == .connecting || vpn.state == .disconnecting
-    }
-
-    private var tint: Color {
-        switch vpn.state {
-        case .connected: return .green
-        case .connecting, .disconnecting: return .orange
-        case .disconnected: return .secondary
-        }
-    }
-
-    private var title: String {
-        switch vpn.state {
-        case .disconnected: return "Not connected"
-        case .connected(let serverName): return serverName
-        case .connecting, .disconnecting: return vpn.currentServer?.name ?? "VPN"
-        }
-    }
-
-    @ViewBuilder
-    private var subtitle: some View {
-        switch vpn.state {
+    static func subtitle(for tunnel: TunnelStatus) -> AnyView {
+        switch tunnel.state {
         case .disconnected:
-            Text("Choose a server to connect")
+            return AnyView(Text("Choose a server to connect"))
         case .connecting:
-            Text("Connecting…")
+            return AnyView(Text("Connecting…"))
         case .disconnecting:
-            Text("Disconnecting…")
-        case .connected:
-            if let since = vpn.connectedSince {
-                TimelineView(.periodic(from: since, by: 1)) { context in
-                    Text("Connected · \(Self.format(context.date.timeIntervalSince(since)))")
-                        .monospacedDigit()
-                }
-            } else {
-                Text("Connected")
+            return AnyView(Text("Disconnecting…"))
+        case .reconnecting(let date):
+            guard let date = date else {
+                return AnyView(Text("Waiting for the network…"))
             }
+            return AnyView(TimelineView(.periodic(from: Date(), by: 1)) { context in
+                Text("Reconnecting in \(max(0, Int(date.timeIntervalSince(context.date).rounded(.up))))s…")
+                    .monospacedDigit()
+            })
+        case .connected:
+            guard let since = tunnel.connectedSince else {
+                return AnyView(Text("Connected"))
+            }
+            return AnyView(TimelineView(.periodic(from: since, by: 1)) { context in
+                Text("Connected · \(Self.format(context.date.timeIntervalSince(since)))")
+                    .monospacedDigit()
+            })
         }
     }
 
@@ -284,38 +358,58 @@ private struct SetupBanner: View {
 
 private struct PanelServerRow: View {
     let server: VPNServer
-    let isActive: Bool
-    let canConnect: Bool
+    let tunnel: TunnelStatus?
     let hasPassword: Bool
-    let onConnect: () -> Void
+    let onToggle: () -> Void
 
     @State private var hovering = false
 
+    private var stateText: String? {
+        guard let tunnel = tunnel else { return nil }
+        switch tunnel.state {
+        case .connecting: return "Connecting…"
+        case .disconnecting: return "Disconnecting…"
+        case .reconnecting: return "Reconnecting…"
+        case .connected: return "Connected"
+        case .disconnected: return nil
+        }
+    }
+
+    private var tint: Color {
+        guard let tunnel = tunnel else { return .secondary }
+        return tunnel.state.tint
+    }
+
     var body: some View {
-        Button {
-            if canConnect { onConnect() }
-        } label: {
+        Button(action: onToggle) {
             HStack(spacing: 10) {
                 Image(systemName: server.iconName)
                     .frame(width: 20)
-                    .foregroundColor(isActive ? .green : .secondary)
+                    .foregroundColor(tint == .secondary ? .secondary : tint)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(server.name)
                         .lineLimit(1)
-                    Text(hasPassword ? server.host : "No password · click to edit")
-                        .font(.caption)
-                        .foregroundColor(hasPassword ? .secondary : .orange)
-                        .lineLimit(1)
+                    if let stateText = stateText {
+                        Text("\(server.host) · \(stateText)")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .lineLimit(1)
+                    } else {
+                        Text(hasPassword ? server.host : "No password · click to edit")
+                            .font(.caption)
+                            .foregroundColor(hasPassword ? .secondary : .orange)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer(minLength: 4)
 
-                if isActive {
+                if let tunnel = tunnel {
                     Circle()
-                        .fill(Color.green)
+                        .fill(tunnel.isConnected ? Color.green : Color.orange)
                         .frame(width: 8, height: 8)
-                } else if hovering && canConnect {
+                } else if hovering {
                     Text(hasPassword ? "Connect" : "Edit")
                         .font(.caption.weight(.medium))
                         .foregroundColor(.accentColor)
@@ -325,13 +419,11 @@ private struct PanelServerRow: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(hovering && canConnect ? Color.primary.opacity(0.08) : Color.clear)
+                    .fill(hovering ? Color.primary.opacity(0.08) : Color.clear)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // While a connection is up the other servers fade out: disconnect first
-        .opacity(canConnect || isActive ? 1 : 0.45)
         .onHover { hovering = $0 }
     }
 }

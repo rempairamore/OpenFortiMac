@@ -1,4 +1,8 @@
 import Foundation
+import os
+
+/// Unified log, not stdout: the executable doubles as the `openfortimac` CLI.
+private let log = Logger(subsystem: "rempairamore.OpenFortiMac", category: "config")
 
 class ConfigManager {
     static let shared = ConfigManager()
@@ -24,7 +28,7 @@ class ConfigManager {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         
         guard FileManager.default.fileExists(atPath: path.path) else {
-            print("Config file not found at \(path.path), using defaults")
+            log.info("Config file not found at \(path.path, privacy: .public), using defaults")
             return AppConfig.default
         }
         
@@ -33,10 +37,10 @@ class ConfigManager {
             let decoder = JSONDecoder()
             // No keyDecodingStrategy — we use explicit CodingKeys in Models
             let config = try decoder.decode(AppConfig.self, from: data)
-            print("Config loaded from \(path.path)")
+            log.info("Config loaded from \(path.path, privacy: .public)")
             return config
         } catch {
-            print("Error loading config: \(error)")
+            log.error("Error loading config: \(String(describing: error), privacy: .public)")
             return AppConfig.default
         }
     }
@@ -53,25 +57,27 @@ class ConfigManager {
             let data = try encoder.encode(newConfig)
             try data.write(to: path)
             self.config = newConfig
-            print("Config saved to \(path.path)")
+            log.info("Config saved to \(path.path, privacy: .public)")
         } catch {
-            print("Error saving config: \(error)")
+            log.error("Error saving config: \(String(describing: error), privacy: .public)")
         }
     }
     
     func saveServers(_ servers: [VPNServer]) {
-        let newConfig = AppConfig(
-            servers: servers,
-            openfortivpnPath: config.openfortivpnPath
-        )
+        var newConfig = config
+        newConfig.servers = servers
         saveConfig(newConfig)
     }
     
     func saveOpenfortivpnPath(_ path: String) {
-        let newConfig = AppConfig(
-            servers: config.servers,
-            openfortivpnPath: path
-        )
+        var newConfig = config
+        newConfig.openfortivpnPath = path
+        saveConfig(newConfig)
+    }
+    
+    func saveAllowMultipleConnections(_ allowed: Bool) {
+        var newConfig = config
+        newConfig.allowMultipleConnections = allowed
         saveConfig(newConfig)
     }
     

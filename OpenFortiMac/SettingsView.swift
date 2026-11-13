@@ -218,6 +218,8 @@ struct SettingsView: View {
             Section("How it works") {
                 Text("openfortivpn needs root to create the VPN tunnel. OpenFortiMac adds a sudo rule so it can start without asking for your password every time.")
                     .font(.callout)
+                Text("Servers with static routes also need /sbin/route, limited to routes through ppp interfaces.")
+                    .font(.callout)
                 Text("Any app running as your user gains the same ability. Remove the rule if you stop using OpenFortiMac.")
                     .font(.callout)
                     .foregroundColor(.secondary)
@@ -230,6 +232,12 @@ struct SettingsView: View {
     private var sudoersActions: AnyView? {
         let busy = viewModel.sudoersBusy
         switch viewModel.sudoersStatus {
+        case .routesMissing:
+            return AnyView(
+                Button("Update…") { viewModel.setUpSudoers() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(busy)
+            )
         case .missing:
             return AnyView(
                 Button("Set Up…") { viewModel.setUpSudoers() }
@@ -261,7 +269,7 @@ struct SettingsView: View {
     private var sudoersIcon: String {
         switch viewModel.sudoersStatus {
         case .managed, .external: return "checkmark.shield.fill"
-        case .outdated, .missing: return "exclamationmark.shield.fill"
+        case .outdated, .missing, .routesMissing: return "exclamationmark.shield.fill"
         case .binaryNotFound: return "xmark.shield.fill"
         case .none: return "shield"
         }
@@ -270,7 +278,7 @@ struct SettingsView: View {
     private var sudoersTint: Color {
         switch viewModel.sudoersStatus {
         case .managed, .external: return .green
-        case .outdated, .missing: return .orange
+        case .outdated, .missing, .routesMissing: return .orange
         case .binaryNotFound: return .red
         case .none: return .secondary
         }
@@ -283,6 +291,7 @@ struct SettingsView: View {
         case .external: return "Allowed by a rule you added manually"
         case .outdated: return "The rule points to a different openfortivpn"
         case .missing: return "Not set up: connections will fail"
+        case .routesMissing: return "Static routes need an updated rule"
         case .binaryNotFound: return "openfortivpn not found"
         }
     }
@@ -293,6 +302,8 @@ struct SettingsView: View {
             return SudoersManager.rulePath
         case .external:
             return "Not managed by OpenFortiMac (e.g. /etc/sudoers.d/openfortivpn)"
+        case .routesMissing:
+            return "A server adds static routes: allow /sbin/route for ppp interfaces"
         case .missing:
             return viewModel.resolvedOpenfortivpnPath
         case .binaryNotFound:
@@ -328,6 +339,16 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundColor(.orange)
                 }
+            }
+            
+            Section {
+                Toggle("Allow multiple connections at once", isOn: $viewModel.allowMultipleConnections)
+            } header: {
+                Text("Connections")
+            } footer: {
+                Text("Each server runs its own tunnel. Give secondary servers \"Don't change routes or DNS\" so only one tunnel owns the default route and resolver. When off, connecting to a server drops the current one.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             
             Section("Startup") {
@@ -500,6 +521,10 @@ struct ServerEditView: View {
     @State private var password: String = ""
     @State private var trustedCert: String = ""
     @State private var icon: String = VPNServer.defaultIcon
+    @State private var noRoutesDNS: Bool = false
+    @State private var staticRoutes: String = ""
+    @State private var autoConnect: Bool = false
+    @State private var autoReconnect: Bool = false
     @State private var validationError: String?
     
     var isEditing: Bool { server != nil }
@@ -546,9 +571,26 @@ struct ServerEditView: View {
                     }
                     .frame(width: 280, alignment: .leading)
                 }
+                
+                Section {
+                    Toggle("Connect at launch", isOn: $autoConnect)
+                    Toggle("Reconnect automatically", isOn: $autoReconnect)
+                        .help("Reconnects when the tunnel drops, e.g. after a network change, until you disconnect")
+                    Toggle("Don't change routes or DNS", isOn: $noRoutesDNS)
+                        .help("Runs openfortivpn with --no-routes --no-dns")
+                    TextField("Static routes:", text: $staticRoutes, prompt: Text("10.20.30.0/24"), axis: .vertical)
+                        .font(.system(size: 11, design: .monospaced))
+                        .lineLimit(2...4)
+                        .help("One CIDR per line, routed through this tunnel's ppp interface while it is up")
+                } header: {
+                    Text("Advanced")
+                } footer: {
+                    Text("For a secondary tunnel next to another one: leave routes and DNS to the main tunnel and list the networks to reach through this one, one CIDR per line.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             .formStyle(.grouped)
-            .scrollDisabled(true)
             
             if let error = validationError {
                 Text(error)
@@ -578,7 +620,7 @@ struct ServerEditView: View {
             }
             .padding()
         }
-        .frame(width: 440, height: 410)
+        .frame(width: 440, height: 600)
         .onAppear {
             if let server = server {
                 name = server.name
@@ -588,6 +630,10 @@ struct ServerEditView: View {
                 password = KeychainHelper.read(for: server.id) ?? ""
                 trustedCert = server.trustedCert ?? ""
                 icon = server.iconName
+                noRoutesDNS = server.noRoutesDNS
+                staticRoutes = server.staticRoutes.joined(separator: "\n")
+                autoConnect = server.autoConnect
+                autoReconnect = server.autoReconnect
             }
         }
     }
@@ -616,9 +662,21 @@ struct ServerEditView: View {
             return false
         }
         
+        for cidr in parsedRoutes where !VPNServer.isValidCIDR(cidr) {
+            validationError = "Invalid route \"\(cidr)\" — use CIDR notation like 10.20.30.0/24"
+            return false
+        }
+        
         host = trimmedHost
         
         return true
+    }
+    
+    private var parsedRoutes: [String] {
+        staticRoutes
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
     }
     
     private func saveServer() {
@@ -632,7 +690,11 @@ struct ServerEditView: View {
             password: nil,
             trustedCert: trustedCert.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : trustedCert.trimmingCharacters(in: .whitespacesAndNewlines),
             icon: icon,
-            id: server?.id
+            id: server?.id,
+            noRoutesDNS: noRoutesDNS,
+            staticRoutes: parsedRoutes,
+            autoConnect: autoConnect,
+            autoReconnect: autoReconnect
         )
         
         if !password.isEmpty {
@@ -660,6 +722,13 @@ class SettingsViewModel: ObservableObject {
             }
         }
     }
+    @Published var allowMultipleConnections: Bool = false {
+        didSet {
+            if oldValue != allowMultipleConnections {
+                ConfigManager.shared.saveAllowMultipleConnections(allowMultipleConnections)
+            }
+        }
+    }
     @Published var launchAtLogin: Bool = false {
         didSet {
             if oldValue != launchAtLogin {
@@ -678,12 +747,14 @@ class SettingsViewModel: ObservableObject {
     }
 
     private var logsObserver: NSObjectProtocol?
+    private var reloadObserver: NSObjectProtocol?
     private var pathObserver: AnyCancellable?
 
     init() {
         loadServers()
         loadLogs()
         openfortivpnPath = ConfigManager.shared.config.openfortivpnPath
+        allowMultipleConnections = ConfigManager.shared.config.allowMultipleConnections
         loadLaunchAtLogin()
         refreshSudoersStatus()
 
@@ -696,8 +767,21 @@ class SettingsViewModel: ObservableObject {
                 self?.refreshSudoersStatus()
             }
 
+        reloadObserver = NotificationCenter.default.addObserver(
+            forName: .configReloaded,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            let config = ConfigManager.shared.config
+            self.loadServers()
+            self.refreshID = UUID()
+            self.allowMultipleConnections = config.allowMultipleConnections
+            self.openfortivpnPath = config.openfortivpnPath
+        }
+
         logsObserver = NotificationCenter.default.addObserver(
-            forName: .vpnStateChanged,
+            forName: .vpnLogsChanged,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -706,9 +790,7 @@ class SettingsViewModel: ObservableObject {
     }
     
     deinit {
-        if let observer = logsObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
+        [logsObserver, reloadObserver].compactMap { $0 }.forEach(NotificationCenter.default.removeObserver)
     }
     
     func loadServers() {
@@ -755,6 +837,8 @@ class SettingsViewModel: ObservableObject {
     private func saveConfig() {
         ConfigManager.shared.saveServers(servers)
         NotificationCenter.default.post(name: .configChanged, object: nil)
+        // Static routes added or removed change what the sudo rule must allow
+        refreshSudoersStatus()
     }
     
     // MARK: - Administrator Permission

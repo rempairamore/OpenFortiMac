@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Multiple simultaneous connections (Settings → General, off by default): one openfortivpn process, status card, log and Disconnect per server
+- Per-server options: "Don't change routes or DNS" (`--no-routes --no-dns`), static routes through the tunnel's ppp interface, connect at launch
+- Per-server auto-reconnect: retries with backoff when a tunnel drops, waits for the network while offline, stops on authentication or certificate errors
+- Sudo rule can also allow `/sbin/route` for ppp interfaces, only when a server uses static routes
+- `openfortimac` command line tool (the app executable): list, status, connect, disconnect, logs, add, edit, remove, show, settings, permission
+- Log file at `~/Library/Logs/OpenFortiMac/openfortimac.log`
+- Right-click menu: connect any idle server
+
+### Changed
+- Menu bar icon: monochrome template shield that shows the number of connected tunnels, instead of a green lock
+- Quitting disconnects all tunnels first, whatever the way of quitting (menu, `brew uninstall`, logout, SIGTERM)
+- The temporary openfortivpn config (with the password) is deleted as soon as the tunnel is up
+
+### Fixed
+- Permission check: `sudo -l` also lists commands that still need a password for administrators; the check now runs `openfortivpn --version` through `sudo -n`
+
 ## v1.3.2
 
 ### Changed

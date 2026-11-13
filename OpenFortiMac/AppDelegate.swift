@@ -9,6 +9,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private let panelModel = PanelViewModel()
     private let popover = NSPopover()
+    private lazy var cliBridge = CLIBridge(vpn: vpnManager)
+    private var sigtermSource: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -47,6 +49,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             name: .vpnStateChanged,
             object: nil
         )
+
+        installSignalHandler()
+        cliBridge.start()
+        vpnManager.connectAutoStartServers()
     }
 
     // MARK: - Menu Bar Panel
@@ -91,10 +97,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         let menu = NSMenu()
 
-        if case .connected = vpnManager.state {
-            let disconnectItem = NSMenuItem(title: "Disconnect", action: #selector(disconnect), keyEquivalent: "d")
-            disconnectItem.target = self
-            menu.addItem(disconnectItem)
+        // One entry per tunnel so each can be dropped independently
+        for tunnel in vpnManager.tunnels {
+            let title: String
+            switch tunnel.state {
+            case .connecting: title = "Cancel \(tunnel.serverName)"
+            case .disconnecting: title = "Disconnecting \(tunnel.serverName)…"
+            case .reconnecting: title = "Stop Reconnecting \(tunnel.serverName)"
+            default: title = "Disconnect \(tunnel.serverName)"
+            }
+            let item = NSMenuItem(title: title, action: #selector(disconnectTunnel(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = tunnel.serverID
+            menu.addItem(item)
+        }
+
+        if !vpnManager.tunnels.isEmpty {
+            menu.addItem(NSMenuItem.separator())
+        }
+
+        // Idle servers: connect from here too (in single-connection mode this switches)
+        let idle = panelModel.servers.filter { vpnManager.status(for: $0.id) == nil }
+        for server in idle {
+            let item = NSMenuItem(title: "Connect \(server.name)", action: #selector(connectServer(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = server.id
+            menu.addItem(item)
+        }
+        if !idle.isEmpty {
             menu.addItem(NSMenuItem.separator())
         }
 
@@ -114,38 +144,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem.menu = nil
     }
 
+    @objc private func connectServer(_ sender: NSMenuItem) {
+        if let serverID = sender.representedObject as? String,
+           let server = panelModel.servers.first(where: { $0.id == serverID }) {
+            panelModel.connect(server)
+        }
+    }
+
+    @objc private func disconnectTunnel(_ sender: NSMenuItem) {
+        if let serverID = sender.representedObject as? String {
+            vpnManager.disconnect(serverID: serverID)
+        }
+    }
+
     // MARK: - Status Icon
 
     private func updateStatusIcon() {
         guard let button = statusItem.button else { return }
-
-        let symbolName: String
-        let description: String
-
-        switch vpnManager.state {
-        case .disconnected:
-            symbolName = "lock.open"
-            description = "Disconnected"
-        case .connecting, .disconnecting:
-            symbolName = "arrow.triangle.2.circlepath"
-            description = "In progress"
-        case .connected:
-            symbolName = "lock.fill"
-            description = "Connected"
-        }
-
-        if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description) {
-            image.isTemplate = true
-
-            // Tint green when connected
-            if case .connected = vpnManager.state {
-                let config = NSImage.SymbolConfiguration(paletteColors: [.systemGreen])
-                button.image = image.withSymbolConfiguration(config) ?? image
-                button.image?.isTemplate = false
-            } else {
-                button.image = image
-            }
-        }
+        let image = StatusIcon.image(connected: vpnManager.connectedCount, busy: vpnManager.busyCount)
+        button.image = image
+        button.toolTip = vpnManager.tunnels.isEmpty
+            ? "OpenFortiMac: not connected"
+            : vpnManager.tunnels.map { "\($0.serverName): \($0.isConnected ? "connected" : "in progress")" }.joined(separator: "\n")
     }
 
     @objc private func vpnStateChanged() {
@@ -155,10 +175,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     // MARK: - Actions
-
-    @objc private func disconnect() {
-        vpnManager.disconnect()
-    }
 
     @objc private func openSettings() {
         showSettings(tab: nil, editor: nil)
@@ -197,14 +213,43 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func quitApp() {
-        if case .connected = vpnManager.state {
-            vpnManager.disconnect()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                NSApp.terminate(nil)
+        NSApp.terminate(nil)
+    }
+
+    /// Every way of quitting (menu, ⌘Q, `brew uninstall`, logout) drops the tunnels first,
+    /// so openfortivpn restores routes and DNS instead of being orphaned.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let processes = vpnManager.stopAllForQuit()
+        guard !processes.isEmpty else { return .terminateNow }
+
+        // openfortivpn restores routes and DNS on SIGTERM; give it a few seconds
+        DispatchQueue.global(qos: .userInitiated).async {
+            let deadline = Date().addingTimeInterval(6)
+            while processes.contains(where: \.isRunning) && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.1)
             }
-        } else {
+            // The app is in a modal run loop mode while it waits to terminate
+            RunLoop.main.perform(inModes: [.common, .modalPanel]) {
+                sender.reply(toApplicationShouldTerminate: true)
+            }
+            CFRunLoopWakeUp(CFRunLoopGetMain())
+        }
+        return .terminateLater
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        cliBridge.stop()
+    }
+
+    /// SIGTERM (e.g. `kill`, launchd) goes through the same graceful path.
+    private func installSignalHandler() {
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler {
             NSApp.terminate(nil)
         }
+        source.resume()
+        sigtermSource = source
     }
 
     // MARK: - NSWindowDelegate
@@ -220,7 +265,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 extension Notification.Name {
     static let vpnStateChanged = Notification.Name("vpnStateChanged")
+    static let vpnLogsChanged = Notification.Name("vpnLogsChanged")
     static let configChanged = Notification.Name("configChanged")
+    /// config.json was changed outside the app (CLI) and re-read
+    static let configReloaded = Notification.Name("configReloaded")
     static let sudoersChanged = Notification.Name("sudoersChanged")
     static let showSettingsTab = Notification.Name("showSettingsTab")
     static let openServerEditor = Notification.Name("openServerEditor")

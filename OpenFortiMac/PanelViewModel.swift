@@ -64,7 +64,20 @@ final class PanelViewModel: ObservableObject {
         VPNManager.shared.connect(to: server, password: password)
     }
 
-    func disconnect() {
-        VPNManager.shared.disconnect()
+    func disconnect(_ server: VPNServer) {
+        VPNManager.shared.disconnect(serverID: server.id)
+    }
+
+    func disconnect(serverID: String) {
+        VPNManager.shared.disconnect(serverID: serverID)
+    }
+
+    /// Click on a server row: toggles that one tunnel, others keep running.
+    func toggle(_ server: VPNServer) {
+        if VPNManager.shared.status(for: server.id) == nil {
+            connect(server)
+        } else {
+            disconnect(server)
+        }
     }
 }
