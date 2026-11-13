@@ -103,6 +103,55 @@ Each server can have its own icon, chosen in the server editor.
 | 🔄 | Connecting / Disconnecting |
 | 🔒 (green) | Connected |
 
+**Settings → General → Menu bar icon → Monochrome** switches to a template shield that follows the menu bar appearance and shows how many tunnels are up:
+
+| Icon | Status |
+|------|--------|
+| Outlined shield | Disconnected |
+| Half-filled shield | Connecting |
+| Shield with checkmark | One tunnel connected |
+| Filled shield with a number | That many tunnels connected |
+| Small dot next to it | Another tunnel is connecting |
+
+### Multiple connections
+
+Turn on **Settings → General → Allow multiple connections at once** to run several tunnels side by side, each with its own status card, log lines and Disconnect button. When it is off (the default), connecting to a server drops the current one.
+
+Only one tunnel should own the default routes and DNS. For the others, open the server editor → **Advanced**:
+
+- **Don't change routes or DNS** — runs openfortivpn with `--no-routes --no-dns`
+- **Static routes** — CIDRs (one per line) routed through this tunnel's own ppp interface while it is up; the interface is detected after connecting, since ppp numbering is dynamic. Needs the sudo rule to allow `/sbin/route` for ppp interfaces: the panel shows an **Update** banner when it is missing.
+- **Connect at launch** — connect automatically when OpenFortiMac starts
+- **Reconnect automatically** — when the tunnel drops (network change, sleep, gateway timeout), reconnect after 2, 5, 10, 20, 30, then every 60 seconds until you disconnect. While offline it waits for the network and retries as soon as it is back. Wrong credentials or certificate stop the retries.
+
+Quitting OpenFortiMac (menu, ⌘Q, `brew uninstall`, logout or `SIGTERM`) disconnects every tunnel first, so openfortivpn restores routes and DNS.
+
+### Command line
+
+The app executable doubles as a command line tool. Link it into your `PATH`:
+
+```bash
+ln -s /Applications/OpenFortiMac.app/Contents/MacOS/OpenFortiMac /opt/homebrew/bin/openfortimac
+```
+
+```bash
+openfortimac list                     # servers and their state
+openfortimac status [--json]          # active tunnels: time, IP, ppp interface, routes
+openfortimac connect office           # name, unique prefix or id; waits until up
+openfortimac disconnect office        # or: disconnect --all
+openfortimac logs -f                  # openfortivpn output (~/Library/Logs/OpenFortiMac)
+
+openfortimac add "Branch" --host vpn.example.com --port 10443 --user me --password \
+    --no-routes-dns --route 10.20.30.0/24
+openfortimac edit branch --add-route 10.40.0.0/16 --auto-connect --auto-reconnect
+openfortimac show branch
+openfortimac remove branch --yes      # also deletes the saved password
+openfortimac settings --allow-multiple on --menu-bar-icon monochrome
+openfortimac permission update        # sudo rule incl. static routes (admin dialog)
+```
+
+Connect and disconnect run through the app (started in the background if needed), which owns the tunnels, the Keychain and the sudo rule. Passwords are read with `--password` (prompt) or `--password-stdin`, never from arguments.
+
 The app sends native macOS notifications on connect, disconnect, and errors.
 
 ## Configuration
@@ -123,6 +172,17 @@ Server profiles are stored at `~/Library/Application Support/OpenFortiMac/config
     "openfortivpn_path": "/opt/homebrew/bin/openfortivpn"
 }
 ```
+
+Optional fields, written only when used:
+
+| Field | Where | Meaning |
+|-------|-------|---------|
+| `allow_multiple_connections` | top level | Run several tunnels at once (default `false`) |
+| `menu_bar_icon` | top level | `classic` (default) or `monochrome` |
+| `no_routes_dns` | server | Pass `--no-routes --no-dns` (default `false`) |
+| `static_routes` | server | CIDRs routed through the tunnel's ppp interface, e.g. `["10.20.30.0/24"]` |
+| `auto_connect` | server | Connect when OpenFortiMac starts (default `false`) |
+| `auto_reconnect` | server | Reconnect when the tunnel drops (default `false`) |
 
 Passwords are **not** stored in this file — they live in the macOS Keychain.
 

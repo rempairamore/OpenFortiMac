@@ -7,6 +7,8 @@ enum SudoersStatus: Equatable {
     case external
     /// Rule installed by OpenFortiMac, but for a different openfortivpn path
     case outdated
+    /// openfortivpn is allowed, but a server uses static routes and /sbin/route is not
+    case routesMissing
     /// sudo would ask for a password
     case missing
     case binaryNotFound
@@ -41,13 +43,23 @@ final class SudoersManager {
 
     private init() {}
 
+    /// The only route commands the rule allows: network routes bound to a ppp interface.
+    /// Argument wildcards keep the rule readable; values are CIDR-checked before use.
+    static let routeCommands = ["add", "change", "delete"].map { "/sbin/route -n \($0) -net * -interface ppp*" }
+
     /// Blocking: runs sudo, call it off the main thread.
-    func status(for binaryPath: String?) -> SudoersStatus {
+    /// `needsRoutes`: some server installs static routes, so /sbin/route must be allowed too.
+    func status(for binaryPath: String?, needsRoutes: Bool = ConfigManager.shared.config.needsRoutePermission) -> SudoersStatus {
         guard let binaryPath = binaryPath else { return .binaryNotFound }
 
         let ruleInstalled = FileManager.default.fileExists(atPath: Self.rulePath)
+        let allowed = isAllowed(binaryPath: binaryPath)
 
-        switch (isAllowed(binaryPath: binaryPath), ruleInstalled) {
+        if allowed && needsRoutes && !routesAllowed() {
+            return .routesMissing
+        }
+
+        switch (allowed, ruleInstalled) {
         case (true, true): return .managed
         case (true, false): return .external
         case (false, true): return .outdated
@@ -55,13 +67,36 @@ final class SudoersManager {
         }
     }
 
-    /// Asks sudo whether the binary can run without a password (-n never prompts).
+    /// Runs the binary through `sudo -n` (never prompts) with a harmless flag.
+    /// `sudo -l` is not enough: for administrators it also lists commands that still need a password.
     func isAllowed(binaryPath: String) -> Bool {
-        run("/usr/bin/sudo", ["-n", "-l", binaryPath]).status == 0
+        let result = run("/usr/bin/sudo", ["-n", binaryPath, "--version"])
+        return result.status == 0 && !Self.needsPassword(result.output)
+    }
+
+    /// Deletes a route that cannot exist (TEST-NET-1 on a ppp unit that is never created):
+    /// sudo either asks for a password or runs route, which then fails harmlessly.
+    func routesAllowed() -> Bool {
+        let result = run("/usr/bin/sudo", ["-n", "/sbin/route", "-n", "delete", "-net", "192.0.2.0/24", "-interface", "ppp999"])
+        return !Self.needsPassword(result.output)
+    }
+
+    static func needsPassword(_ sudoOutput: String) -> Bool {
+        sudoOutput.contains("a password is required") || sudoOutput.contains("may not run sudo")
+    }
+
+    /// The sudoers file content written by `install`.
+    static func ruleContent(user: String, binaryPath: String, includeRoutes: Bool) -> [String] {
+        var lines = ["\(user) ALL = (root) NOPASSWD: \(binaryPath)"]
+        if includeRoutes {
+            lines.append("\(user) ALL = (root) NOPASSWD: " + routeCommands.joined(separator: ", "))
+        }
+        return lines
     }
 
     /// Blocking: shows the macOS administrator password dialog.
-    func install(binaryPath: String) throws {
+    /// `includeRoutes`: also allow /sbin/route for servers with static routes.
+    func install(binaryPath: String, includeRoutes: Bool = ConfigManager.shared.config.needsRoutePermission) throws {
         let user = NSUserName()
         guard user.range(of: "^[A-Za-z0-9._-]+$", options: .regularExpression) != nil else {
             throw SudoersError.invalidUsername(user)
@@ -71,11 +106,13 @@ final class SudoersManager {
             throw SudoersError.invalidPath(binaryPath)
         }
 
-        let rule = "\(user) ALL = (root) NOPASSWD: \(binaryPath)"
+        let lines = Self.ruleContent(user: user, binaryPath: binaryPath, includeRoutes: includeRoutes)
+            .map { "'\($0)'" }
+            .joined(separator: " ")
         // Runs as root: the temp file is created by root, validated by visudo, then installed read-only
         let script = """
         t=$(/usr/bin/mktemp) && \
-        printf '%s\\n' '\(rule)' > "$t" && \
+        printf '%s\\n' \(lines) > "$t" && \
         /usr/sbin/visudo -cf "$t" && \
         /usr/bin/install -m 0440 -o root -g wheel "$t" \(Self.rulePath); \
         r=$?; /bin/rm -f "$t"; exit $r
