@@ -316,6 +316,10 @@ jobs:
           # Lint the cask and audit it against the release published above
           brew style Casks/openfortimac.rb
           brew tap rempairamore/tap "$PWD"
+          # Recent Homebrew refuses to load casks from taps that are not explicitly trusted
+          if brew help trust > /dev/null 2>&1; then
+            brew trust rempairamore/tap
+          fi
           brew audit --cask --strict --online rempairamore/tap/openfortimac
 
           git push --quiet origin "$BRANCH"
