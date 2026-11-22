@@ -148,10 +148,10 @@ The `realm` field is optional too (**Realm (optional)** in the server editor). S
 ### Homebrew
 
 ```bash
-brew uninstall --cask openfortimac
+brew uninstall --zap --cask rempairamore/tap/openfortimac
 ```
 
-This also removes `/etc/sudoers.d/openfortimac` (brew asks for your password). Add `--zap` to delete the configuration too.
+`--zap` also removes the sudo rule `/etc/sudoers.d/openfortimac` (brew asks for your password) and the configuration. Without `--zap` both stay: Homebrew runs the same uninstall steps when it updates the app, so the rule is kept there on purpose. To keep your servers but drop the rule, use Settings → Permission → **Remove** before `brew uninstall --cask rempairamore/tap/openfortimac`.
 
 ### Manual
 
