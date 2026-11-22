@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.3.3
+
+### Added
+- **Realm (optional)** in the server editor, passed to openfortivpn as `realm` for gateways that use authentication realms. A `"realm"` key added by hand to `config.json` is now kept ([#11](https://github.com/rempairamore/OpenFortiMac/issues/11))
+
+### Changed
+- Server values containing a line break are rejected before they reach openfortivpn's configuration file
+- Taller server editor, so the new field and the icons fit
+
 ## v1.3.2
 
 ### Changed

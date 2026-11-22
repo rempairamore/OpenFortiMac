@@ -499,6 +499,7 @@ struct ServerEditView: View {
     @State private var username: String = ""
     @State private var password: String = ""
     @State private var trustedCert: String = ""
+    @State private var realm: String = ""
     @State private var icon: String = VPNServer.defaultIcon
     @State private var validationError: String?
     
@@ -525,6 +526,8 @@ struct ServerEditView: View {
                 TextField("Certificate (optional):", text: $trustedCert)
                     .frame(width: 280)
                     .font(.system(size: 11, design: .monospaced))
+                TextField("Realm (optional):", text: $realm)
+                    .frame(width: 280)
                 LabeledContent("Icon:") {
                     HStack(spacing: 4) {
                         ForEach(VPNServer.iconChoices, id: \.self) { choice in
@@ -578,7 +581,7 @@ struct ServerEditView: View {
             }
             .padding()
         }
-        .frame(width: 440, height: 410)
+        .frame(width: 440, height: 460)
         .onAppear {
             if let server = server {
                 name = server.name
@@ -587,6 +590,7 @@ struct ServerEditView: View {
                 username = server.username
                 password = KeychainHelper.read(for: server.id) ?? ""
                 trustedCert = server.trustedCert ?? ""
+                realm = server.realm ?? ""
                 icon = server.iconName
             }
         }
@@ -615,7 +619,20 @@ struct ServerEditView: View {
             validationError = "Username cannot be empty"
             return false
         }
-        
+
+        // These values become "key = value" lines of openfortivpn's config file
+        let configValues: [(field: String, value: String)] = [
+            ("Host", trimmedHost),
+            ("Username", username.trimmingCharacters(in: .whitespacesAndNewlines)),
+            ("Password", password),
+            ("Certificate", trustedCert.trimmingCharacters(in: .whitespacesAndNewlines)),
+            ("Realm", realm.trimmingCharacters(in: .whitespacesAndNewlines)),
+        ]
+        if let invalid = configValues.first(where: { $0.value.contains(where: \.isNewline) }) {
+            validationError = "\(invalid.field) cannot contain line breaks"
+            return false
+        }
+
         host = trimmedHost
         
         return true
@@ -623,7 +640,8 @@ struct ServerEditView: View {
     
     private func saveServer() {
         let portInt = Int(port) ?? 443
-        
+        let trimmedRealm = realm.trimmingCharacters(in: .whitespacesAndNewlines)
+
         let newServer = VPNServer(
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             host: host,
@@ -631,6 +649,7 @@ struct ServerEditView: View {
             username: username.trimmingCharacters(in: .whitespacesAndNewlines),
             password: nil,
             trustedCert: trustedCert.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : trustedCert.trimmingCharacters(in: .whitespacesAndNewlines),
+            realm: trimmedRealm.isEmpty ? nil : trimmedRealm,
             icon: icon,
             id: server?.id
         )

@@ -34,6 +34,8 @@ struct VPNServer: Codable, Identifiable, Hashable {
     let username: String
     let password: String?
     let trustedCert: String?
+    /// Authentication realm (openfortivpn `realm`), only for gateways that use one
+    let realm: String?
     /// SF Symbol shown next to the server name
     let icon: String?
     
@@ -43,11 +45,11 @@ struct VPNServer: Codable, Identifiable, Hashable {
     var iconName: String { icon ?? Self.defaultIcon }
     
     enum CodingKeys: String, CodingKey {
-        case id, name, host, port, username, password, icon
+        case id, name, host, port, username, password, realm, icon
         case trustedCert = "trusted_cert"
     }
-    
-    init(name: String, host: String, port: Int, username: String, password: String?, trustedCert: String?, icon: String? = nil, id: String? = nil) {
+
+    init(name: String, host: String, port: Int, username: String, password: String?, trustedCert: String?, realm: String? = nil, icon: String? = nil, id: String? = nil) {
         self.id = id ?? UUID().uuidString
         self.name = name
         self.host = host
@@ -55,6 +57,7 @@ struct VPNServer: Codable, Identifiable, Hashable {
         self.username = username
         self.password = password
         self.trustedCert = trustedCert
+        self.realm = realm
         self.icon = icon
     }
     
@@ -67,6 +70,7 @@ struct VPNServer: Codable, Identifiable, Hashable {
         username = try container.decode(String.self, forKey: .username)
         password = try container.decodeIfPresent(String.self, forKey: .password)
         trustedCert = try container.decodeIfPresent(String.self, forKey: .trustedCert)
+        realm = try container.decodeIfPresent(String.self, forKey: .realm)
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
     }
     

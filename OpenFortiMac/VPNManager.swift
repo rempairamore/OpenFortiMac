@@ -80,21 +80,21 @@ class VPNManager: ObservableObject {
             return
         }
 
+        // Built before any file is written, so invalid values never reach the disk
+        let configContent: String
+        do {
+            configContent = try OpenfortivpnConfig.make(server: server, password: password)
+        } catch {
+            DispatchQueue.main.async { [weak self] in
+                self?.connectionFailed(reason: error.localizedDescription)
+            }
+            return
+        }
+
         let tempDir = FileManager.default.temporaryDirectory
         let configPath = tempDir.appendingPathComponent("fortivpn_\(UUID().uuidString).conf")
         tempConfigPath = configPath.path
-        
-        var configContent = """
-        host = \(server.host)
-        port = \(server.port)
-        username = \(server.username)
-        password = \(password)
-        """
-        
-        if let trustedCert = server.trustedCert, !trustedCert.isEmpty {
-            configContent += "\ntrusted-cert = \(trustedCert)"
-        }
-        
+
         do {
             try configContent.write(to: configPath, atomically: true, encoding: .utf8)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configPath.path)

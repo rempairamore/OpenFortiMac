@@ -117,7 +117,8 @@ Server profiles are stored at `~/Library/Application Support/OpenFortiMac/config
             "name": "Office VPN",
             "host": "vpn.company.com",
             "port": 443,
-            "username": "john.doe"
+            "username": "john.doe",
+            "realm": "staff"
         }
     ],
     "openfortivpn_path": "/opt/homebrew/bin/openfortivpn"
@@ -128,6 +129,8 @@ Passwords are **not** stored in this file — they live in the macOS Keychain.
 
 The `trusted_cert` field is optional. If omitted, the app uses `--trusted-cert=any`.
 
+The `realm` field is optional too (**Realm (optional)** in the server editor). Set it only if your FortiGate uses authentication realms: the web portal address then ends with the realm name, for example `https://vpn.company.com/staff`.
+
 ## Troubleshooting
 
 **"openfortivpn not found"** — Check the binary path in Settings → General. Run `which openfortivpn` to find yours.
@@ -135,6 +138,8 @@ The `trusted_cert` field is optional. If omitted, the app uses `--trusted-cert=a
 **"Administrator permission not set up"** — The sudo rule is missing or points to another openfortivpn path. Open Settings → Permission and click **Set Up…** (or **Update…**).
 
 **"OpenFortiMac is damaged" / "cannot be opened"** — See [First launch](#first-launch).
+
+**Login works in the browser at `https://…/something` but not in the app** — Your gateway uses an authentication realm: edit the server and put `something` in **Realm (optional)**.
 
 **Connection fails** — Open Settings → Log tab for details. 
 
