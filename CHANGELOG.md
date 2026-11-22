@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Homebrew updates no longer remove the sudo rule: the cask removes `/etc/sudoers.d/openfortimac` only on `brew uninstall --zap`. Installs made with an earlier cask still remove it on their next update, one last time: click **Set Up…** in Settings → Permission again.
+
 ## v1.3.3
 
 ### Added
