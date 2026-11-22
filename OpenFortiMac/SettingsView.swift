@@ -76,7 +76,10 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingEditServer, onDismiss: { viewModel.loadServers() }) {
             if let server = selectedServer {
+                // A new editor per server: its fields are loaded once, when it appears, so a sheet
+                // reused for another server would save the previous server's values into it
                 ServerEditView(viewModel: viewModel, server: server)
+                    .id(server.id)
             }
         }
         .alert("Delete Server", isPresented: $showingDeleteConfirm, presenting: serverToDelete) { server in

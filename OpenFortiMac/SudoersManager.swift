@@ -55,9 +55,11 @@ final class SudoersManager {
         }
     }
 
-    /// Asks sudo whether the binary can run without a password (-n never prompts).
+    /// Runs the binary's harmless `--version` through sudo without a password prompt (-n).
+    /// Listing with `sudo -n -l <binary>` is not enough: for an administrator who has any other
+    /// passwordless rule, it also reports commands that still need a password.
     func isAllowed(binaryPath: String) -> Bool {
-        run("/usr/bin/sudo", ["-n", "-l", binaryPath]).status == 0
+        run("/usr/bin/sudo", ["-n", binaryPath, "--version"]).status == 0
     }
 
     /// Blocking: shows the macOS administrator password dialog.

@@ -95,6 +95,8 @@ Click the menu bar icon to open the panel:
 
 If the administrator permission is missing, a banner in the panel links to **Settings → Permission**. Right-click the menu bar icon for a quick menu with Disconnect, Settings and Quit.
 
+Quitting OpenFortiMac disconnects first, also on logout and when Homebrew quits the app to update it, so openfortivpn restores your routes and DNS.
+
 Each server can have its own icon, chosen in the server editor.
 
 | Icon | Status |
@@ -127,7 +129,7 @@ Server profiles are stored at `~/Library/Application Support/OpenFortiMac/config
 
 Passwords are **not** stored in this file — they live in the macOS Keychain.
 
-The `trusted_cert` field is optional. If omitted, the app uses `--trusted-cert=any`.
+The `trusted_cert` field is optional. Gateways with a certificate from a trusted authority don't need it. For a self-signed gateway, openfortivpn refuses the connection and prints the certificate's sha256 digest in the Log tab: put that digest in **Certificate (optional)** only if you trust the gateway.
 
 The `realm` field is optional too (**Realm (optional)** in the server editor). Set it only if your FortiGate uses authentication realms: the web portal address then ends with the realm name, for example `https://vpn.company.com/staff`.
 
