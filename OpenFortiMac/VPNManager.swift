@@ -32,14 +32,28 @@ class VPNManager: ObservableObject {
     private var outputPipe: Pipe?
     private var tempConfigPath: String?
     private var connectionTimeoutTimer: Timer?
+    /// Run once openfortivpn has exited, e.g. to let the app quit
+    private var stopCompletions: [() -> Void] = []
+
+    /// A tunnel is starting, up, or openfortivpn is still shutting down.
+    var isActive: Bool {
+        state != .disconnected || vpnProcess != nil
+    }
     
-    private init() {
+    private init() {}
+
+    func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
     
     func connect(to server: VPNServer, password: String) {
         guard case .disconnected = state else {
             showNotification(title: "Already Connected", body: "Disconnect first before connecting to another server")
+            return
+        }
+        // The previous openfortivpn is still shutting down: launching now would be refused
+        guard vpnProcess == nil else {
+            showNotification(title: "Still Disconnecting", body: "Try again in a moment")
             return
         }
         
@@ -49,14 +63,13 @@ class VPNManager: ObservableObject {
         notifyStateChange()
         addLog("Connecting to \(server.name)...")
         
-        // Set connection timeout (30 seconds)
-        DispatchQueue.main.async { [weak self] in
-            self?.connectionTimeoutTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: false) { [weak self] _ in
-                guard let self = self, case .connecting = self.state else { return }
-                self.addLog("ERROR: Connection timeout - server not responding")
-                self.showNotification(title: "Connection Failed ❌", body: "Timeout - server not responding")
-                self.terminateAndCleanup()
-            }
+        // Connection timeout (30 seconds), created right away so a stale timer never outlives a cancel
+        connectionTimeoutTimer?.invalidate()
+        connectionTimeoutTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: false) { [weak self] _ in
+            guard let self = self, case .connecting = self.state else { return }
+            self.addLog("ERROR: Connection timeout - server not responding")
+            self.showNotification(title: "Connection Failed ❌", body: "Timeout - server not responding")
+            self.terminateAndCleanup()
         }
         
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -64,6 +77,7 @@ class VPNManager: ObservableObject {
         }
     }
     
+    /// Slow checks off the main thread; the launch itself happens on the main thread.
     private func performConnection(server: VPNServer, password: String) {
         guard let openfortivpnPath = findOpenfortivpnBinary() else {
             DispatchQueue.main.async { [weak self] in
@@ -91,26 +105,38 @@ class VPNManager: ObservableObject {
             return
         }
 
-        let tempDir = FileManager.default.temporaryDirectory
-        let configPath = tempDir.appendingPathComponent("fortivpn_\(UUID().uuidString).conf")
-        tempConfigPath = configPath.path
+        DispatchQueue.main.async { [weak self] in
+            self?.launch(openfortivpnPath: openfortivpnPath, configContent: configContent, server: server)
+        }
+    }
 
+    private func launch(openfortivpnPath: String, configContent: String, server: VPNServer) {
+        // Cancelled, or the app started quitting, while the permission was being checked
+        guard case .connecting = state, currentServer?.id == server.id, vpnProcess == nil else { return }
+
+        let configPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("fortivpn_\(UUID().uuidString).conf").path
         do {
-            try configContent.write(to: configPath, atomically: true, encoding: .utf8)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configPath.path)
+            try Self.writePrivateFile(configContent, to: configPath)
         } catch {
-            DispatchQueue.main.async { [weak self] in
-                self?.connectionFailed(reason: "Failed to create config: \(error.localizedDescription)")
-            }
+            connectionFailed(reason: "Failed to create config: \(error.localizedDescription)")
             return
         }
+        tempConfigPath = configPath
 
-        var arguments = ["-c", configPath.path]
-        if server.trustedCert == nil || server.trustedCert?.isEmpty == true {
-            arguments.append("--trusted-cert=any")
+        // A trusted-cert digest, when set, is in the config file
+        runWithSudo(openfortivpnPath: openfortivpnPath, arguments: ["-c", configPath], server: server)
+    }
+
+    /// Creates the file readable by its owner only from the start; O_EXCL never reuses an existing path.
+    private static func writePrivateFile(_ content: String, to path: String) throws {
+        let descriptor = open(path, O_WRONLY | O_CREAT | O_EXCL, 0o600)
+        guard descriptor >= 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
         }
-        
-        runWithSudo(openfortivpnPath: openfortivpnPath, arguments: arguments, server: server)
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        try handle.write(contentsOf: Data(content.utf8))
+        try handle.close()
     }
     
     func findOpenfortivpnBinary() -> String? {
@@ -166,13 +192,16 @@ class VPNManager: ObservableObject {
             try process.run()
             addLog("Starting connection to \(server.name)...")
         } catch {
-            DispatchQueue.main.async { [weak self] in
-                self?.connectionFailed(reason: "Failed to start process: \(error.localizedDescription)")
-            }
+            vpnProcess = nil
+            outputPipe = nil
+            connectionFailed(reason: "Failed to start process: \(error.localizedDescription)")
         }
     }
     
     private func handleOutput(_ output: String, server: VPNServer) {
+        // openfortivpn reads its config before printing anything: the file with the password can go now
+        cleanupTempFiles()
+
         let lines = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
         
         for line in lines {
@@ -206,8 +235,10 @@ class VPNManager: ObservableObject {
                 connectionFailed(reason: "Authentication failed - check username/password")
             } else if lower.contains("permission denied") && !lower.contains("sudo") {
                 connectionFailed(reason: "Authentication failed - check username/password")
+            } else if lower.contains("not in the local whitelist") {
+                connectionFailed(reason: "The gateway's certificate is not trusted. Only if you trust this gateway, copy the sha256 digest from the Log into Certificate (optional).")
             } else if lower.contains("certificate") && lower.contains("error") {
-                connectionFailed(reason: "Certificate error - try leaving certificate field empty")
+                connectionFailed(reason: "Certificate error - see the Log for details")
             } else if lower.contains("gateway") && lower.contains("error") {
                 connectionFailed(reason: "Gateway error: \(line)")
             }
@@ -252,9 +283,13 @@ class VPNManager: ObservableObject {
         
         vpnProcess = nil
         outputPipe = nil
+        finishStop()
     }
-    
+
     private func connectionFailed(reason: String) {
+        // Already cancelled while the permission was being checked: nothing left to report
+        guard state != .disconnected || vpnProcess != nil else { return }
+
         connectionTimeoutTimer?.invalidate()
         connectionTimeoutTimer = nil
         
@@ -273,6 +308,7 @@ class VPNManager: ObservableObject {
             cleanupTempFiles()
             state = .disconnected
             notifyStateChange()
+            finishStop()
             return
         }
 
@@ -280,27 +316,53 @@ class VPNManager: ObservableObject {
             process.terminate()
         }
 
-        // Safety net: force state update after 3s
+        // Safety net: if openfortivpn has not exited after 3s, stop waiting for it
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-            if self?.state != .disconnected {
-                self?.state = .disconnected
-                self?.notifyStateChange()
-                self?.cleanupTempFiles()
-                self?.vpnProcess = nil
-                self?.outputPipe = nil
-                self?.addLog("Disconnected (forced)")
-            }
+            guard let self = self, self.vpnProcess === process else { return }
+            self.state = .disconnected
+            self.notifyStateChange()
+            self.cleanupTempFiles()
+            self.vpnProcess = nil
+            self.outputPipe = nil
+            self.addLog("Disconnected (forced)")
+            self.finishStop()
         }
     }
-    
-    func disconnect() {
-        guard vpnProcess != nil else { return }
-        
-        state = .disconnecting
-        notifyStateChange()
-        addLog("Disconnecting...")
-        
+
+    /// Stops the tunnel. `completion` runs once openfortivpn has exited, or right away if nothing runs.
+    func disconnect(completion: (() -> Void)? = nil) {
+        if let completion = completion {
+            stopCompletions.append(completion)
+        }
+
+        guard vpnProcess != nil else {
+            // Still checking the permission: launch() sees the new state and never starts openfortivpn
+            if state != .disconnected {
+                connectionTimeoutTimer?.invalidate()
+                connectionTimeoutTimer = nil
+                state = .disconnected
+                notifyStateChange()
+                addLog("Cancelled")
+            }
+            finishStop()
+            return
+        }
+
+        if state != .disconnected {
+            state = .disconnecting
+            notifyStateChange()
+            addLog("Disconnecting...")
+        }
+
         terminateAndCleanup()
+    }
+
+    private func finishStop() {
+        // Still waiting for openfortivpn to exit
+        guard vpnProcess == nil else { return }
+        let completions = stopCompletions
+        stopCompletions = []
+        completions.forEach { $0() }
     }
     
     private func cleanupTempFiles() {
@@ -324,6 +386,9 @@ class VPNManager: ObservableObject {
     }
     
     private func showNotification(title: String, body: String) {
+        // Notifications need an app bundle; command-line builds of this class (tests) have none
+        guard Bundle.main.bundleIdentifier != nil else { return }
+
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body

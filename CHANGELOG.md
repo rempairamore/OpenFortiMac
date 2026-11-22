@@ -1,9 +1,19 @@
 # Changelog
 
-## Unreleased
+## v1.3.4
 
 ### Fixed
+- Quitting now disconnects first and waits for openfortivpn to restore routes and DNS (up to 6 seconds), from every quit path: the menu, logout, Homebrew's quit during `brew upgrade` and `brew uninstall`, and SIGTERM. Before, openfortivpn could stay up as root with no app left to stop it
+- The permission check reported the sudo rule as set up for administrators who have any other passwordless sudo rule; it now really runs `openfortivpn --version` through `sudo -n`
+- The temporary openfortivpn configuration, which contains the password, is deleted as soon as openfortivpn has read it, instead of when the connection ends
+- Opening another server from the panel while the server editor was open saved the first server's fields, password included, into the second one
+- Cancelling while the permission is being checked no longer starts openfortivpn afterwards
 - Homebrew updates no longer remove the sudo rule: the cask removes `/etc/sudoers.d/openfortimac` only on `brew uninstall --zap`. Installs made with an earlier cask still remove it on their next update, one last time: click **Set Up…** in Settings → Permission again.
+
+### Changed
+- No more `--trusted-cert=any`: it never disabled the certificate check, it did nothing. The certificate error now points to the sha256 digest in the Log
+
+The permission check, server editor, temporary configuration and quitting issues were found by [@RomanVassilchenko](https://github.com/RomanVassilchenko) in [#12](https://github.com/rempairamore/OpenFortiMac/pull/12).
 
 ## v1.3.3
 

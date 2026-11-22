@@ -9,9 +9,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private let panelModel = PanelViewModel()
     private let popover = NSPopover()
+    private var sigtermSource: DispatchSourceSignal?
+    private var terminationReplied = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        vpnManager.requestNotificationPermission()
+
+        // `kill` and some shutdowns send SIGTERM, which would end the app on the spot:
+        // route it through AppKit so the tunnel is closed first
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler {
+            NSApp.terminate(nil)
+        }
+        source.resume()
+        sigtermSource = source
 
         // Create default config if first launch
         let isFirstLaunch = !FileManager.default.fileExists(atPath: ConfigManager.configPath.path)
@@ -197,14 +210,33 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func quitApp() {
-        if case .connected = vpnManager.state {
-            vpnManager.disconnect()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                NSApp.terminate(nil)
-            }
-        } else {
-            NSApp.terminate(nil)
+        // The tunnel is closed in applicationShouldTerminate, like for every other way of quitting
+        NSApp.terminate(nil)
+    }
+
+    // MARK: - Quitting
+
+    /// Every quit path ends here: the menu, logout and shutdown, Homebrew's quit during
+    /// `brew upgrade` or `brew uninstall`, and SIGTERM. openfortivpn restores routes and DNS
+    /// only if it is stopped properly, so wait for it before letting the app go.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard vpnManager.isActive else { return .terminateNow }
+
+        terminationReplied = false
+        vpnManager.disconnect { [weak self] in
+            self?.replyToTermination()
         }
+        // Homebrew gives up on a quit after 10 s: never wait longer than 6
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+            self?.replyToTermination()
+        }
+        return .terminateLater
+    }
+
+    private func replyToTermination() {
+        guard !terminationReplied else { return }
+        terminationReplied = true
+        NSApp.reply(toApplicationShouldTerminate: true)
     }
 
     // MARK: - NSWindowDelegate
