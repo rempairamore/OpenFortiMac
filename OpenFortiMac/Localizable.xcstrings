@@ -1,0 +1,1836 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ asks for a code. Connect again and enter it." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ chiede un codice. Connettiti di nuovo e inseriscilo."
+          }
+        }
+      }
+    },
+    "%@ contains a line break. Edit the server in Settings." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ contiene un ritorno a capo. Modifica il server nelle Impostazioni."
+          }
+        }
+      }
+    },
+    "%@ copy" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia di %@"
+          }
+        }
+      }
+    },
+    "%@ did not answer in time." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ non ha risposto in tempo."
+          }
+        }
+      }
+    },
+    "%@:%@ refused the connection." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@:%2$@ ha rifiutato la connessione."
+          }
+        }
+      }
+    },
+    "A VPN is still running" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una VPN è ancora attiva"
+          }
+        }
+      }
+    },
+    "Add" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi"
+          }
+        }
+      }
+    },
+    "Add server" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi server"
+          }
+        }
+      }
+    },
+    "Add Server" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi server"
+          }
+        }
+      }
+    },
+    "Add your first server" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi il tuo primo server"
+          }
+        }
+      }
+    },
+    "Administrator permission not set up" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permesso di amministratore non impostato"
+          }
+        }
+      }
+    },
+    "Advanced" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avanzate"
+          }
+        }
+      }
+    },
+    "Allowed by a rule you added manually" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permesso da una regola aggiunta a mano"
+          }
+        }
+      }
+    },
+    "Already Connected" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Già connesso"
+          }
+        }
+      }
+    },
+    "Any app running as your user gains the same ability. Remove the rule if you stop using OpenFortiMac." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ogni app avviata dal tuo utente può fare lo stesso. Togli la regola se smetti di usare OpenFortiMac."
+          }
+        }
+      }
+    },
+    "Are you sure you want to delete \"%@\"?" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuoi davvero eliminare «%@»?"
+          }
+        }
+      }
+    },
+    "Ask when connecting" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiedi a ogni connessione"
+          }
+        }
+      }
+    },
+    "Asks GitHub for the latest release, once a day." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiede a GitHub l’ultima versione, una volta al giorno."
+          }
+        }
+      }
+    },
+    "Authentication failed" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso non riuscito"
+          }
+        }
+      }
+    },
+    "Binary not found at this path" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Programma non trovato a questo percorso"
+          }
+        }
+      }
+    },
+    "Browse..." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sfoglia…"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla"
+          }
+        }
+      }
+    },
+    "Cancelled" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annullato"
+          }
+        }
+      }
+    },
+    "Cannot find %@. Check the address and your connection." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile trovare %@. Controlla l’indirizzo e la tua connessione."
+          }
+        }
+      }
+    },
+    "Certificate" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificato"
+          }
+        }
+      }
+    },
+    "Certificate not trusted" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificato non attendibile"
+          }
+        }
+      }
+    },
+    "Check for updates automatically" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerca gli aggiornamenti in automatico"
+          }
+        }
+      }
+    },
+    "Check Now" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerca ora"
+          }
+        }
+      }
+    },
+    "Check the two-factor code and the password of %@." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controlla il codice a due fattori e la password di %@."
+          }
+        }
+      }
+    },
+    "Check the username and password of %@." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controlla nome utente e password di %@."
+          }
+        }
+      }
+    },
+    "Checking…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controllo in corso…"
+          }
+        }
+      }
+    },
+    "Choose a file exported from OpenFortiMac. Passwords are not part of it." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli un file esportato da OpenFortiMac. Le password non ne fanno parte."
+          }
+        }
+      }
+    },
+    "Choose a server to connect" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli un server per connetterti"
+          }
+        }
+      }
+    },
+    "Clear" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Svuota"
+          }
+        }
+      }
+    },
+    "Complete the sign-in in your browser." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completa l’accesso nel browser."
+          }
+        }
+      }
+    },
+    "Config File" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File di configurazione"
+          }
+        }
+      }
+    },
+    "config.json could not be read" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile leggere config.json"
+          }
+        }
+      }
+    },
+    "Connect" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connetti"
+          }
+        }
+      }
+    },
+    "Connected" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connesso"
+          }
+        }
+      }
+    },
+    "Connected · %@" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connesso · %@"
+          }
+        }
+      }
+    },
+    "Connecting…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione…"
+          }
+        }
+      }
+    },
+    "Connection ended" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione terminata"
+          }
+        }
+      }
+    },
+    "Connection failed" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione non riuscita"
+          }
+        }
+      }
+    },
+    "Connection Failed" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione non riuscita"
+          }
+        }
+      }
+    },
+    "Connection refused" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione rifiutata"
+          }
+        }
+      }
+    },
+    "Copy" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia"
+          }
+        }
+      }
+    },
+    "Could not change the sudo rule" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile modificare la regola sudo"
+          }
+        }
+      }
+    },
+    "Could not reach GitHub." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub non è raggiungibile."
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina"
+          }
+        }
+      }
+    },
+    "Delete Server" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina server"
+          }
+        }
+      }
+    },
+    "Disconnect" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnetti"
+          }
+        }
+      }
+    },
+    "Disconnect first before connecting to another server" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnettiti prima di connetterti a un altro server"
+          }
+        }
+      }
+    },
+    "Disconnected" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnesso"
+          }
+        }
+      }
+    },
+    "Disconnecting…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnessione…"
+          }
+        }
+      }
+    },
+    "Double-click to edit, drag to reorder" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doppio clic per modificare, trascina per riordinare"
+          }
+        }
+      }
+    },
+    "Duplicate" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplica"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifica"
+          }
+        }
+      }
+    },
+    "Edit server" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifica server"
+          }
+        }
+      }
+    },
+    "Edit Server" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifica server"
+          }
+        }
+      }
+    },
+    "Export servers…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esporta i server…"
+          }
+        }
+      }
+    },
+    "Exported %lld servers" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Exported %lld server"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Exported %lld servers"
+                }
+              }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Esportato %lld server"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Esportati %lld server"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Fields cannot contain line breaks" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I campi non possono contenere ritorni a capo"
+          }
+        }
+      }
+    },
+    "From your authenticator app, email or SMS." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dall’app di autenticazione, dall’email o da un SMS."
+          }
+        }
+      }
+    },
+    "Gateway" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gateway"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generali"
+          }
+        }
+      }
+    },
+    "Host" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host"
+          }
+        }
+      }
+    },
+    "Host cannot be empty or contain spaces" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’host non può essere vuoto né contenere spazi"
+          }
+        }
+      }
+    },
+    "Host, port and username of your FortiGate SSL VPN." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host, porta e nome utente della tua VPN SSL FortiGate."
+          }
+        }
+      }
+    },
+    "How it works" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Come funziona"
+          }
+        }
+      }
+    },
+    "Icon" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Icona"
+          }
+        }
+      }
+    },
+    "Import or export servers" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importa o esporta i server"
+          }
+        }
+      }
+    },
+    "Import servers…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importa server…"
+          }
+        }
+      }
+    },
+    "Imported %lld servers" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Imported %lld server"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Imported %lld servers"
+                }
+              }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Importato %lld server"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Importati %lld server"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "In progress" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In corso"
+          }
+        }
+      }
+    },
+    "Install it with brew install openfortivpn, or set its path in General." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installalo con brew install openfortivpn, oppure indica il suo percorso in Generali."
+          }
+        }
+      }
+    },
+    "Install it with brew install openfortivpn." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installalo con brew install openfortivpn."
+          }
+        }
+      }
+    },
+    "IP address" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indirizzo IP"
+          }
+        }
+      }
+    },
+    "It did not stop. Restart your Mac to close it." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non si è fermata. Riavvia il Mac per chiuderla."
+          }
+        }
+      }
+    },
+    "Last attempt failed" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ultimo tentativo non riuscito"
+          }
+        }
+      }
+    },
+    "Launch at Login" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri al login"
+          }
+        }
+      }
+    },
+    "Left over from a previous session." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "È rimasta da una sessione precedente."
+          }
+        }
+      }
+    },
+    "live" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "in diretta"
+          }
+        }
+      }
+    },
+    "Log" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log"
+          }
+        }
+      }
+    },
+    "Minimum TLS" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TLS minimo"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome"
+          }
+        }
+      }
+    },
+    "Name cannot be empty" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il nome non può essere vuoto"
+          }
+        }
+      }
+    },
+    "No code was entered in time." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun codice inserito in tempo."
+          }
+        }
+      }
+    },
+    "No logs yet. Connect to a VPN to see activity." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ancora nessun log. Connettiti a una VPN per vedere l’attività."
+          }
+        }
+      }
+    },
+    "No password" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessuna password"
+          }
+        }
+      }
+    },
+    "No password · click to edit" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessuna password · clic per modificare"
+          }
+        }
+      }
+    },
+    "No response" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessuna risposta"
+          }
+        }
+      }
+    },
+    "No servers found in the file" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun server nel file"
+          }
+        }
+      }
+    },
+    "Not connected" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non connesso"
+          }
+        }
+      }
+    },
+    "Not managed by OpenFortiMac (e.g. /etc/sudoers.d/openfortivpn)" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non gestita da OpenFortiMac (es. /etc/sudoers.d/openfortivpn)"
+          }
+        }
+      }
+    },
+    "Not set up: connections will fail" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non impostato: le connessioni non riusciranno"
+          }
+        }
+      }
+    },
+    "One-time code" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codice monouso"
+          }
+        }
+      }
+    },
+    "Open General" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri Generali"
+          }
+        }
+      }
+    },
+    "Open Settings › Permission." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri Impostazioni › Permesso."
+          }
+        }
+      }
+    },
+    "Open sign-in page" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri la pagina di accesso"
+          }
+        }
+      }
+    },
+    "OpenFortiMac is up to date." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenFortiMac è aggiornato."
+          }
+        }
+      }
+    },
+    "OpenFortiMac Settings" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impostazioni di OpenFortiMac"
+          }
+        }
+      }
+    },
+    "OpenFortiMac wants to allow openfortivpn to start the VPN tunnel without asking for your password." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenFortiMac vuole permettere a openfortivpn di avviare il tunnel VPN senza chiederti la password."
+          }
+        }
+      }
+    },
+    "OpenFortiMac wants to remove its openfortivpn sudo rule." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenFortiMac vuole rimuovere la sua regola sudo per openfortivpn."
+          }
+        }
+      }
+    },
+    "openfortivpn Binary" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Programma openfortivpn"
+          }
+        }
+      }
+    },
+    "openfortivpn can start without a password" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "openfortivpn può partire senza password"
+          }
+        }
+      }
+    },
+    "openfortivpn could not be started: %@" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile avviare openfortivpn: %@"
+          }
+        }
+      }
+    },
+    "openfortivpn needs it to start the tunnel." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serve a openfortivpn per avviare il tunnel."
+          }
+        }
+      }
+    },
+    "openfortivpn needs root to create the VPN tunnel. OpenFortiMac adds a sudo rule so it can start without asking for your password every time." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "openfortivpn ha bisogno dei permessi di root per creare il tunnel VPN. OpenFortiMac aggiunge una regola sudo, così parte senza chiederti la password ogni volta."
+          }
+        }
+      }
+    },
+    "openfortivpn not found" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "openfortivpn non trovato"
+          }
+        }
+      }
+    },
+    "openfortivpn stopped with code %@." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "openfortivpn si è fermato con il codice %@."
+          }
+        }
+      }
+    },
+    "optional" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "facoltativo"
+          }
+        }
+      }
+    },
+    "Password" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password"
+          }
+        }
+      }
+    },
+    "Passwords are not exported: they stay in your Keychain." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le password non vengono esportate: restano nel tuo Portachiavi."
+          }
+        }
+      }
+    },
+    "Path:" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Percorso:"
+          }
+        }
+      }
+    },
+    "Permission" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permesso"
+          }
+        }
+      }
+    },
+    "Permission points to another openfortivpn" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il permesso riguarda un altro openfortivpn"
+          }
+        }
+      }
+    },
+    "Phone approval when available" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conferma dal telefono, se disponibile"
+          }
+        }
+      }
+    },
+    "Port" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Porta"
+          }
+        }
+      }
+    },
+    "Port must be a number between 1 and 65535" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La porta deve essere un numero tra 1 e 65535"
+          }
+        }
+      }
+    },
+    "Quit OpenFortiMac" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esci da OpenFortiMac"
+          }
+        }
+      }
+    },
+    "Realm" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Realm"
+          }
+        }
+      }
+    },
+    "Received" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ricevuti"
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rimuovi"
+          }
+        }
+      }
+    },
+    "Reveal in Finder" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra nel Finder"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salva"
+          }
+        }
+      }
+    },
+    "Saved · leave empty to keep" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salvata · lascia vuoto per tenerla"
+          }
+        }
+      }
+    },
+    "Save…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salva…"
+          }
+        }
+      }
+    },
+    "Search…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerca…"
+          }
+        }
+      }
+    },
+    "Send" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invia"
+          }
+        }
+      }
+    },
+    "Sent" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inviati"
+          }
+        }
+      }
+    },
+    "Server not found" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server non trovato"
+          }
+        }
+      }
+    },
+    "Servers" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server"
+          }
+        }
+      }
+    },
+    "Set up" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imposta"
+          }
+        }
+      }
+    },
+    "Set Up…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imposta…"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impostazioni"
+          }
+        }
+      }
+    },
+    "Settings…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impostazioni…"
+          }
+        }
+      }
+    },
+    "Show" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra"
+          }
+        }
+      }
+    },
+    "Show log" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra il log"
+          }
+        }
+      }
+    },
+    "Single sign-on" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single sign-on"
+          }
+        }
+      }
+    },
+    "Single sign-on (SAML)" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single sign-on (SAML)"
+          }
+        }
+      }
+    },
+    "Single sign-on failed" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single sign-on non riuscito"
+          }
+        }
+      }
+    },
+    "Some servers were left out" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alcuni server sono rimasti fuori"
+          }
+        }
+      }
+    },
+    "Startup" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvio"
+          }
+        }
+      }
+    },
+    "Still Disconnecting" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnessione ancora in corso"
+          }
+        }
+      }
+    },
+    "Stop it" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermala"
+          }
+        }
+      }
+    },
+    "System default" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Predefinito di sistema"
+          }
+        }
+      }
+    },
+    "The certificate of %@ is not signed by a trusted authority." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il certificato di %@ non è firmato da un’autorità riconosciuta."
+          }
+        }
+      }
+    },
+    "The connection could not be prepared: %@" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile preparare la connessione: %@"
+          }
+        }
+      }
+    },
+    "The file could not be written" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile scrivere il file"
+          }
+        }
+      }
+    },
+    "The password could not be saved in the Keychain" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile salvare la password nel Portachiavi"
+          }
+        }
+      }
+    },
+    "The rule points to a different openfortivpn" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La regola riguarda un altro openfortivpn"
+          }
+        }
+      }
+    },
+    "The sign-in address is not the one of %@." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’indirizzo di accesso non è quello di %@."
+          }
+        }
+      }
+    },
+    "The sign-in in the browser was not completed in time." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’accesso nel browser non è stato completato in tempo."
+          }
+        }
+      }
+    },
+    "The sign-in was not completed in time." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’accesso non è stato completato in tempo."
+          }
+        }
+      }
+    },
+    "They are incomplete in config.json. A copy of the file was kept." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In config.json sono incompleti. È stata tenuta una copia del file."
+          }
+        }
+      }
+    },
+    "Trust and connect" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autorizza e connetti"
+          }
+        }
+      }
+    },
+    "Trust it only if this is the fingerprint your administrator gave you." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autorizzalo solo se questa è l’impronta che ti ha dato il tuo amministratore."
+          }
+        }
+      }
+    },
+    "Trust this certificate…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autorizza questo certificato…"
+          }
+        }
+      }
+    },
+    "Try again in a moment" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riprova tra un momento"
+          }
+        }
+      }
+    },
+    "Two-factor code" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codice a due fattori"
+          }
+        }
+      }
+    },
+    "Two-factor code missing" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manca il codice a due fattori"
+          }
+        }
+      }
+    },
+    "Unsupported characters in openfortivpn path \"%@\"" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Caratteri non ammessi nel percorso di openfortivpn «%@»"
+          }
+        }
+      }
+    },
+    "Unsupported characters in username \"%@\"" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Caratteri non ammessi nel nome utente «%@»"
+          }
+        }
+      }
+    },
+    "Update" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiorna"
+          }
+        }
+      }
+    },
+    "Update the rule after moving openfortivpn." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiorna la regola dopo aver spostato openfortivpn."
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiornamenti"
+          }
+        }
+      }
+    },
+    "Update…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiorna…"
+          }
+        }
+      }
+    },
+    "Username" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome utente"
+          }
+        }
+      }
+    },
+    "Username cannot be empty" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il nome utente non può essere vuoto"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versione"
+          }
+        }
+      }
+    },
+    "Version %@ is available" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "È disponibile la versione %@"
+          }
+        }
+      }
+    },
+    "VPN Connected" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VPN connessa"
+          }
+        }
+      }
+    },
+    "VPN Disconnected" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VPN disconnessa"
+          }
+        }
+      }
+    },
+    "Waiting for your browser…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In attesa del browser…"
+          }
+        }
+      }
+    },
+    "Waiting for your code…" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In attesa del codice…"
+          }
+        }
+      }
+    },
+    "You have %@." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hai la %@."
+          }
+        }
+      }
+    },
+    "Your servers are not shown. A copy of the file was kept." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I tuoi server non sono mostrati. È stata tenuta una copia del file."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.4.0
+
+### Added
+- **Two-factor codes**: when the gateway asks for a code (FortiToken, email or SMS), the panel shows a field to type it. **One-time code → Ask when connecting**, in the server's Advanced options, skips the FortiToken push and always asks for the code
+- **Single sign-on (SAML)**: with the option on, OpenFortiMac opens the gateway's sign-in page in your browser and connects when the sign-in is done. No username or password is saved for these servers. Needs openfortivpn 1.23 or later
+- **Trust this certificate…**: when a gateway's certificate is not signed by a trusted authority, the panel shows who it belongs to and its sha256 fingerprint, and saves it for that server if you confirm. No more copying the digest from the Log
+- The reason of a failed connection stays in the panel, with **Show log** and **Edit server**
+- While connected, the panel shows the tunnel's IP address, the data received and sent, and the gateway
+- A VPN left running by an earlier session (after a crash or a forced quit) is found at launch: the panel offers **Stop it**
+- Update notice: the panel and Settings → General tell you when a newer release is out. The app asks GitHub once a day and downloads nothing by itself; turn it off in Settings → General
+- The version number, at the bottom of the panel and in Settings → General
+- Server editor: an **Advanced** section with Certificate, Realm, One-time code, **Minimum TLS** and Single sign-on
+- **Import servers…**, **Export servers…** and **Duplicate** in Settings → Servers. Exported files never contain passwords
+- Log: time and level on each line, colours for warnings and errors, search and **Save…**. It updates while the window is open
+- Italian translation
+
+### Changed
+- The menu bar icon turns while connecting and disconnecting
+- The Settings window no longer stays above every other window
+- No more emoji in notifications and Settings
+- The server editor no longer reads the saved password: the field is empty and the saved password is kept unless you type a new one. The panel checks whether a password exists without reading it
+
+### Fixed
+- An error in `config.json` (a port written as text, a server without a username, a missing comma) made every server disappear, and the next change overwrote the file. Now a server with a problem is left out and the others load, a port written as text is accepted, a server without an `id` gets one, and a copy of the original file is kept next to it as `config.backup-….json`, with a notice in the panel and in Settings
+- Opening Settings rewrote `config.json` every time
+- A `"password"` written by hand in `config.json` was ignored and stayed on disk in clear text: it is now moved to the Keychain and removed from the file
+- Temporary configuration files left by a crashed session are removed at launch
+
 ## v1.3.4
 
 ### Fixed

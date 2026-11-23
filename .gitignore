@@ -18,5 +18,8 @@ xcuserdata/
 .DS_Store
 **/.DS_Store
 
+# Python
+__pycache__/
+
 # Config file
 config.json

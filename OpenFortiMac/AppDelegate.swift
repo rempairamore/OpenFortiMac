@@ -11,6 +11,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let popover = NSPopover()
     private var sigtermSource: DispatchSourceSignal?
     private var terminationReplied = false
+    private var iconAnimation: Timer?
+    private var iconAngle: CGFloat = 0
+    private var updateTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -60,6 +63,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             name: .vpnStateChanged,
             object: nil
         )
+
+        // A crash or a forced quit can leave a tunnel running and its config file behind
+        LeftoverTunnels.removeStaleConfigFiles()
+        panelModel.refreshLeftoverTunnels()
+
+        // GitHub is asked at most once a day; the timer only notices when a day has passed
+        panelModel.refreshUpdate()
+        let timer = Timer(timeInterval: 6 * 3600, repeats: true) { [weak self] _ in
+            self?.panelModel.refreshUpdate()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        updateTimer = timer
     }
 
     // MARK: - Menu Bar Panel
@@ -91,6 +106,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // The rule may have changed outside the app since the last check
         panelModel.refreshSudoersStatus()
+        panelModel.refreshLeftoverTunnels()
 
         // Activate so the panel's keyboard shortcuts (⌘D, ⌘,, ⌘Q) work right away
         NSApp.activate(ignoringOtherApps: true)
@@ -105,19 +121,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let menu = NSMenu()
 
         if case .connected = vpnManager.state {
-            let disconnectItem = NSMenuItem(title: "Disconnect", action: #selector(disconnect), keyEquivalent: "d")
+            let disconnectItem = NSMenuItem(title: String(localized: "Disconnect"), action: #selector(disconnect), keyEquivalent: "d")
             disconnectItem.target = self
             menu.addItem(disconnectItem)
             menu.addItem(NSMenuItem.separator())
         }
 
-        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        let settingsItem = NSMenuItem(title: String(localized: "Settings…"), action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: "Quit OpenFortiMac", action: #selector(quitApp), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: String(localized: "Quit OpenFortiMac"), action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
@@ -138,14 +154,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         switch vpnManager.state {
         case .disconnected:
             symbolName = "lock.open"
-            description = "Disconnected"
+            description = String(localized: "Disconnected")
         case .connecting, .disconnecting:
-            symbolName = "arrow.triangle.2.circlepath"
-            description = "In progress"
+            // The arrows turn while the connection is being set up or taken down
+            startIconAnimation()
+            return
         case .connected:
             symbolName = "lock.fill"
-            description = "Connected"
+            description = String(localized: "Connected")
         }
+        stopIconAnimation()
 
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description) {
             image.isTemplate = true
@@ -159,6 +177,46 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 button.image = image
             }
         }
+    }
+
+    private func startIconAnimation() {
+        guard iconAnimation == nil else { return }
+        iconAngle = 0
+        drawBusyIcon()
+        let timer = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            // Negative degrees turn clockwise, the way the arrows point
+            self.iconAngle -= 30
+            self.drawBusyIcon()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        iconAnimation = timer
+    }
+
+    private func stopIconAnimation() {
+        iconAnimation?.invalidate()
+        iconAnimation = nil
+    }
+
+    private func drawBusyIcon() {
+        let description = String(localized: "In progress")
+        guard let symbol = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: description) else { return }
+        let size = symbol.size
+        let side = max(size.width, size.height)
+        let angle = iconAngle
+
+        let rotated = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            let transform = NSAffineTransform()
+            transform.translateX(by: rect.midX, yBy: rect.midY)
+            transform.rotate(byDegrees: angle)
+            transform.translateX(by: -size.width / 2, yBy: -size.height / 2)
+            transform.concat()
+            symbol.draw(in: NSRect(origin: .zero, size: size))
+            return true
+        }
+        rotated.isTemplate = true
+        rotated.accessibilityDescription = description
+        statusItem.button?.image = rotated
     }
 
     @objc private func vpnStateChanged() {
@@ -197,11 +255,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let hostingController = NSHostingController(rootView: settingsView)
 
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "OpenFortiMac Settings"
+        window.title = String(localized: "OpenFortiMac Settings")
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.center()
         window.setFrameAutosaveName("SettingsWindow")
-        window.level = .floating
         window.delegate = self
 
         settingsWindow = window
@@ -246,14 +303,4 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             settingsWindow = nil
         }
     }
-}
-
-// MARK: - Notifications
-
-extension Notification.Name {
-    static let vpnStateChanged = Notification.Name("vpnStateChanged")
-    static let configChanged = Notification.Name("configChanged")
-    static let sudoersChanged = Notification.Name("sudoersChanged")
-    static let showSettingsTab = Notification.Name("showSettingsTab")
-    static let openServerEditor = Notification.Name("openServerEditor")
 }

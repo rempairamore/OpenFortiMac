@@ -37,6 +37,19 @@ struct KeychainHelper {
         return false
     }
     
+    /// Whether a password is saved, without reading it: the secret stays in the Keychain
+    /// and macOS has no reason to ask for access just to draw a list.
+    static func exists(for serverID: String) -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: serverID,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
+    }
+
     /// Read a password from the Keychain
     static func read(for serverID: String) -> String? {
         let query: [String: Any] = [
