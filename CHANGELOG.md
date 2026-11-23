@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.4.3
+
+### Changed
+- Menu bar icon while disconnected: a full-strength shield with a small ring at its corner, instead of the dimmed shield that got lost on colored menu bars. While connecting an orange dot pulses in the ring's place; connected, it is the green shield with the check as before
+
 ## v1.4.2
 
 ### Changed
