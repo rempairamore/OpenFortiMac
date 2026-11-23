@@ -10,7 +10,9 @@ A native macOS menu bar app for managing [OpenFortiVPN](https://github.com/adrie
 - Light, Dark and Dracula themes
 - In English, with Italian as an option
 
-<img src="docs/assets/openfortimac-panel-demo.gif" width="356" alt="Click the OpenFortiMac menu bar icon, then Connect on a server: the panel shows Connecting and then Connected with the tunnel IP">
+<img src="docs/assets/openfortimac-panel-demo.gif" width="356" alt="Click the OpenFortiMac shield in the menu bar, then Connect on a server: the shield fills up while connecting and turns green, and the panel shows the tunnel's IP address and traffic">
+
+<img src="docs/assets/openfortimac-themes.png" width="820" alt="The panel in the three themes: Light while it waits for a two-factor code, Dark while connected, Dracula with a notice about a VPN left running and one about an update">
 
 
 ## Installation
@@ -235,4 +237,4 @@ To try a build without shipping it, push a tag with a suffix (for example `v1.3.
 
 Local builds use the certificate when it is in your keychain and fall back to an ad-hoc signature otherwise.
 
-The demo GIF at the top of this README is generated with `python3 scripts/make_panel_demo.py` (macOS and ffmpeg required) from example data.
+The pictures at the top of this README are drawn from the app's real views with example data: `uv run --with pillow scripts/make_panel_demo.py` (macOS with Xcode 26). Run it again when the panel changes.
