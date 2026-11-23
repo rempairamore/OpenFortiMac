@@ -7,6 +7,7 @@
 - The note of 1.3.2 was wrong: the stable certificate does not stop macOS from asking after an update. Without an Apple developer team the permission is tied to the exact build
 - Menu bar icon: a shield instead of the lock. Dimmed when disconnected, filling up and emptying while connecting, green with a check when connected
 - Settings: the tabs are an icon bar, like the preferences of macOS. The band that the system tabs drew across the window is gone
+- New app icon: the green shield with the check on a dark tile, at the standard size of macOS icons (the old one filled its square and looked larger than the others)
 
 ## v1.4.1
 
