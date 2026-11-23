@@ -14,7 +14,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var sigtermSource: DispatchSourceSignal?
     private var terminationReplied = false
     private var iconAnimation: Timer?
-    private var iconAngle: CGFloat = 0
+    /// Where the busy icon is in its cycle, 0 to 1
+    private var iconPhase: CGFloat = 0
     private var updateTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -141,13 +142,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func styleSettingsWindow(_ window: NSWindow) {
         window.appearance = ThemeManager.shared.theme.appearance
-        if let background = ThemeManager.shared.theme.palette.background {
-            window.titlebarAppearsTransparent = true
-            window.backgroundColor = background
-        } else {
-            window.titlebarAppearsTransparent = false
-            window.backgroundColor = .windowBackgroundColor
-        }
+        // The title bar and the tabs under it read as one toolbar
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = ThemeManager.shared.theme.palette.background ?? .windowBackgroundColor
     }
 
     /// A popover draws its own frame and arrow. A view of the theme's color placed under the
@@ -201,45 +198,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func updateStatusIcon() {
         guard let button = statusItem.button else { return }
 
-        let symbolName: String
-        let description: String
-
         switch vpnManager.state {
         case .disconnected:
-            symbolName = "lock.open"
-            description = String(localized: "Disconnected")
+            stopIconAnimation()
+            button.image = StatusIcon.disconnected(description: String(localized: "Disconnected"))
         case .connecting, .disconnecting:
-            // The arrows turn while the connection is being set up or taken down
+            // The shield fills up and empties while the connection is set up or taken down
             startIconAnimation()
-            return
         case .connected:
-            symbolName = "lock.fill"
-            description = String(localized: "Connected")
-        }
-        stopIconAnimation()
-
-        if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description) {
-            image.isTemplate = true
-
-            // Tint green when connected
-            if case .connected = vpnManager.state {
-                let config = NSImage.SymbolConfiguration(paletteColors: [.systemGreen])
-                button.image = image.withSymbolConfiguration(config) ?? image
-                button.image?.isTemplate = false
-            } else {
-                button.image = image
-            }
+            stopIconAnimation()
+            button.image = StatusIcon.connected(description: String(localized: "Connected"))
         }
     }
 
     private func startIconAnimation() {
         guard iconAnimation == nil else { return }
-        iconAngle = 0
+        iconPhase = 0
         drawBusyIcon()
-        let timer = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.06, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            // Negative degrees turn clockwise, the way the arrows point
-            self.iconAngle -= 30
+            // One full cycle, there and back, every 1.8 seconds
+            self.iconPhase = (self.iconPhase + 0.06 / 1.8).truncatingRemainder(dividingBy: 1)
             self.drawBusyIcon()
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -252,24 +231,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func drawBusyIcon() {
-        let description = String(localized: "In progress")
-        guard let symbol = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: description) else { return }
-        let size = symbol.size
-        let side = max(size.width, size.height)
-        let angle = iconAngle
-
-        let rotated = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
-            let transform = NSAffineTransform()
-            transform.translateX(by: rect.midX, yBy: rect.midY)
-            transform.rotate(byDegrees: angle)
-            transform.translateX(by: -size.width / 2, yBy: -size.height / 2)
-            transform.concat()
-            symbol.draw(in: NSRect(origin: .zero, size: size))
-            return true
-        }
-        rotated.isTemplate = true
-        rotated.accessibilityDescription = description
-        statusItem.button?.image = rotated
+        // Up in the first half of the cycle, down in the second, slowing at both ends
+        let wave = iconPhase < 0.5 ? iconPhase * 2 : (1 - iconPhase) * 2
+        let eased = wave * wave * (3 - 2 * wave)
+        statusItem.button?.image = StatusIcon.busy(progress: eased, description: String(localized: "In progress"))
     }
 
     @objc private func vpnStateChanged() {

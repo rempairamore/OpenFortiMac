@@ -3,8 +3,28 @@ import Combine
 import ServiceManagement
 import UniformTypeIdentifiers
 
-enum SettingsTab {
+enum SettingsTab: CaseIterable, Identifiable {
     case servers, permission, general, log
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .servers: return "Servers"
+        case .permission: return "Permission"
+        case .general: return "General"
+        case .log: return "Log"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .servers: return "server.rack"
+        case .permission: return "lock.shield"
+        case .general: return "gearshape"
+        case .log: return "doc.text"
+        }
+    }
 }
 
 /// Asks the settings window to open the server editor, e.g. from the menu bar panel.
@@ -35,30 +55,20 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            serversTab
-                .tabItem {
-                    Label("Servers", systemImage: "server.rack")
+        // Not a TabView: on macOS that draws a bezel line across the window with the tabs
+        // sitting on it, which leaves an odd empty band on both sides
+        VStack(spacing: 0) {
+            SettingsTabBar(selection: $selectedTab)
+            Divider()
+            Group {
+                switch selectedTab {
+                case .servers: serversTab
+                case .permission: permissionTab
+                case .general: generalTab
+                case .log: logTab
                 }
-                .tag(SettingsTab.servers)
-
-            permissionTab
-                .tabItem {
-                    Label("Permission", systemImage: "lock.shield")
-                }
-                .tag(SettingsTab.permission)
-
-            generalTab
-                .tabItem {
-                    Label("General", systemImage: "gearshape")
-                }
-                .tag(SettingsTab.general)
-
-            logTab
-                .tabItem {
-                    Label("Log", systemImage: "doc.text")
-                }
-                .tag(SettingsTab.log)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 540, height: 700)
         .themed(.window)
@@ -627,6 +637,44 @@ struct SettingsView: View {
         if let last = shownLogs.last {
             proxy.scrollTo(last.id, anchor: .bottom)
         }
+    }
+}
+
+// MARK: - Tab Bar
+
+/// The tabs of the Settings window, drawn like the toolbar of a preferences window.
+private struct SettingsTabBar: View {
+    @Binding var selection: SettingsTab
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(SettingsTab.allCases) { tab in
+                Button {
+                    selection = tab
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 18))
+                            .frame(height: 22)
+                        Text(tab.title)
+                            .font(.system(size: 11, weight: selection == tab ? .semibold : .regular))
+                    }
+                    .foregroundColor(selection == tab ? palette.accent : .secondary)
+                    .frame(width: 84, height: 50)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(selection == tab ? Color.primary.opacity(0.08) : Color.clear)
+                    )
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selection == tab ? .isSelected : [])
+            }
+        }
+        .padding(.top, 2)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
     }
 }
 

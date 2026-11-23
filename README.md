@@ -93,7 +93,7 @@ The path is `/opt/homebrew/bin/openfortivpn` on Apple Silicon and `/usr/local/bi
 
 ### Configure
 
-A lock icon appears in the menu bar. Click it → **Settings** → **Servers** tab → add your VPN servers.
+A shield icon appears in the menu bar. Click it → **Settings** → **Servers** tab → add your VPN servers.
 
 ## Usage
 
@@ -123,9 +123,9 @@ Each server can have its own icon, chosen in the server editor.
 
 | Icon | Status |
 |------|--------|
-| 🔓 | Disconnected |
-| 🔄 (turning) | Connecting / Disconnecting |
-| 🔒 (green) | Connected |
+| Dimmed shield | Disconnected |
+| Shield filling up and emptying | Connecting / Disconnecting |
+| Green shield with a check | Connected |
 
 The app sends native macOS notifications on connect, disconnect, and errors.
 

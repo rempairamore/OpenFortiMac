@@ -5,6 +5,8 @@
 ### Changed
 - All passwords are in one Keychain item ("OpenFortiMac passwords") instead of one per server, so after an update macOS asks for Keychain access once, not once per server. Passwords saved by earlier versions are moved the first time each server is used, which asks for the old items one last time. Choose **Always Allow**
 - The note of 1.3.2 was wrong: the stable certificate does not stop macOS from asking after an update. Without an Apple developer team the permission is tied to the exact build
+- Menu bar icon: a shield instead of the lock. Dimmed when disconnected, filling up and emptying while connecting, green with a check when connected
+- Settings: the tabs are an icon bar, like the preferences of macOS. The band that the system tabs drew across the window is gone
 
 ## v1.4.1
 
