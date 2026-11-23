@@ -21,11 +21,11 @@ enum SudoersError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .cancelled:
-            return "Cancelled"
+            return String(localized: "Cancelled")
         case .invalidUsername(let name):
-            return "Unsupported characters in username \"\(name)\""
+            return String(localized: "Unsupported characters in username \"\(name)\"")
         case .invalidPath(let path):
-            return "Unsupported characters in openfortivpn path \"\(path)\""
+            return String(localized: "Unsupported characters in openfortivpn path \"\(path)\"")
         case .failed(let message):
             return message
         }
@@ -83,12 +83,12 @@ final class SudoersManager {
         r=$?; /bin/rm -f "$t"; exit $r
         """
 
-        try runAsAdministrator(script, prompt: "OpenFortiMac wants to allow openfortivpn to start the VPN tunnel without asking for your password.")
+        try runAsAdministrator(script, prompt: String(localized: "OpenFortiMac wants to allow openfortivpn to start the VPN tunnel without asking for your password."))
     }
 
     /// Blocking: shows the macOS administrator password dialog.
     func remove() throws {
-        try runAsAdministrator("/bin/rm -f \(Self.rulePath)", prompt: "OpenFortiMac wants to remove its openfortivpn sudo rule.")
+        try runAsAdministrator("/bin/rm -f \(Self.rulePath)", prompt: String(localized: "OpenFortiMac wants to remove its openfortivpn sudo rule."))
     }
 
     // MARK: - Helpers
@@ -124,7 +124,7 @@ final class SudoersManager {
         if let range = message.range(of: #" \(-?\d+\)$"#, options: .regularExpression) {
             message.removeSubrange(range)
         }
-        return message.isEmpty ? "Could not change the sudo rule" : message
+        return message.isEmpty ? String(localized: "Could not change the sudo rule") : message
     }
 
     private func run(_ executable: String, _ arguments: [String]) -> (status: Int32, output: String) {

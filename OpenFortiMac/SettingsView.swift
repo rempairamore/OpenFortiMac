@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import ServiceManagement
+import UniformTypeIdentifiers
 
 enum SettingsTab {
     case servers, permission, general, log
@@ -14,6 +15,7 @@ enum ServerEditorRequest: Equatable {
 
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
+    @ObservedObject private var vpn = VPNManager.shared
     @State private var selectedServer: VPNServer?
     @State private var showingAddServer = false
     @State private var showingEditServer = false
@@ -21,12 +23,13 @@ struct SettingsView: View {
     @State private var pendingEditor: ServerEditorRequest?
     @State private var serverToDelete: VPNServer?
     @State private var showingDeleteConfirm = false
-    
+    @State private var logSearch = ""
+
     init(initialTab: SettingsTab = .servers, initialEditor: ServerEditorRequest? = nil) {
         _selectedTab = State(initialValue: initialTab)
         _pendingEditor = State(initialValue: initialEditor)
     }
-    
+
     var body: some View {
         TabView(selection: $selectedTab) {
             serversTab
@@ -34,26 +37,26 @@ struct SettingsView: View {
                     Label("Servers", systemImage: "server.rack")
                 }
                 .tag(SettingsTab.servers)
-            
+
             permissionTab
                 .tabItem {
                     Label("Permission", systemImage: "lock.shield")
                 }
                 .tag(SettingsTab.permission)
-            
+
             generalTab
                 .tabItem {
                     Label("General", systemImage: "gearshape")
                 }
                 .tag(SettingsTab.general)
-            
+
             logTab
                 .tabItem {
                     Label("Log", systemImage: "doc.text")
                 }
                 .tag(SettingsTab.log)
         }
-        .frame(width: 540, height: 460)
+        .frame(width: 540, height: 540)
         .onReceive(NotificationCenter.default.publisher(for: .showSettingsTab)) { notification in
             if let tab = notification.object as? SettingsTab {
                 selectedTab = tab
@@ -94,7 +97,7 @@ struct SettingsView: View {
             Text("Are you sure you want to delete \"\(server.name)\"?")
         }
     }
-    
+
     private func openEditor(_ request: ServerEditorRequest) {
         selectedTab = .servers
         switch request {
@@ -107,11 +110,20 @@ struct SettingsView: View {
             }
         }
     }
-    
+
+    private func edit(_ server: VPNServer) {
+        selectedServer = server
+        showingEditServer = true
+    }
+
     // MARK: - Servers Tab
-    
+
     private var serversTab: some View {
         VStack(spacing: 0) {
+            if let issue = viewModel.configIssue {
+                configIssueBanner(issue)
+            }
+
             if viewModel.servers.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "server.rack")
@@ -131,10 +143,8 @@ struct SettingsView: View {
                     ForEach(viewModel.servers) { server in
                         ServerRowView(
                             server: server,
-                            onEdit: {
-                                selectedServer = server
-                                showingEditServer = true
-                            },
+                            hasPassword: !viewModel.serversWithoutPassword.contains(server.id),
+                            onEdit: { edit(server) },
                             onDelete: {
                                 serverToDelete = server
                                 showingDeleteConfirm = true
@@ -142,9 +152,15 @@ struct SettingsView: View {
                         )
                         .tag(server)
                         .listRowSeparator(.hidden)
-                        .onTapGesture(count: 2) {
-                            selectedServer = server
-                            showingEditServer = true
+                        .onTapGesture(count: 2) { edit(server) }
+                        .contextMenu {
+                            Button("Edit") { edit(server) }
+                            Button("Duplicate") { viewModel.duplicate(server) }
+                            Divider()
+                            Button("Delete", role: .destructive) {
+                                serverToDelete = server
+                                showingDeleteConfirm = true
+                            }
                         }
                     }
                     .onMove(perform: viewModel.moveServers)
@@ -152,17 +168,32 @@ struct SettingsView: View {
                 .listStyle(.inset)
                 .id(viewModel.refreshID)
             }
-            
+
             Divider()
-            
+
             HStack {
                 Button(action: { showingAddServer = true }) {
                     Label("Add server", systemImage: "plus")
                 }
-                
+
+                Menu {
+                    Button("Import servers…") { importServers() }
+                    Button("Export servers…") { exportServers() }
+                        .disabled(viewModel.servers.isEmpty)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Import or export servers")
+
                 Spacer()
-                
-                if !viewModel.servers.isEmpty {
+
+                if let message = viewModel.transferMessage {
+                    Text(verbatim: message)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else if !viewModel.servers.isEmpty {
                     Text("Double-click to edit, drag to reorder")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -172,9 +203,63 @@ struct SettingsView: View {
             .background(Color(NSColor.controlBackgroundColor))
         }
     }
-    
+
+    private func configIssueBanner(_ issue: ConfigIssue) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundColor(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                switch issue {
+                case .unreadable:
+                    Text("config.json could not be read")
+                        .font(.callout.weight(.medium))
+                    Text("Your servers are not shown. A copy of the file was kept.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                case .skippedServers:
+                    Text("Some servers were left out")
+                        .font(.callout.weight(.medium))
+                    Text("They are incomplete in config.json. A copy of the file was kept.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                if let backup = issue.backup {
+                    Text(verbatim: backup)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+            Spacer(minLength: 8)
+            Button("Show") { viewModel.revealConfigFolder() }
+                .controlSize(.small)
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.14))
+    }
+
+    private func importServers() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.message = String(localized: "Choose a file exported from OpenFortiMac. Passwords are not part of it.")
+        if panel.runModal() == .OK, let url = panel.url {
+            viewModel.importServers(from: url)
+        }
+    }
+
+    private func exportServers() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "OpenFortiMac servers.json"
+        panel.message = String(localized: "Passwords are not exported: they stay in your Keychain.")
+        if panel.runModal() == .OK, let url = panel.url {
+            viewModel.exportServers(to: url)
+        }
+    }
+
     // MARK: - Permission Tab
-    
+
     private var permissionTab: some View {
         Form {
             Section {
@@ -183,41 +268,41 @@ struct SettingsView: View {
                         .font(.system(size: 28))
                         .foregroundColor(sudoersTint)
                         .frame(width: 36)
-                    
+
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(sudoersStatusText)
+                        Text(verbatim: sudoersStatusText)
                             .font(.headline)
                         if let detail = sudoersStatusDetail {
-                            Text(detail)
+                            Text(verbatim: detail)
                                 .font(.system(.caption, design: .monospaced))
                                 .foregroundColor(.secondary)
                                 .textSelection(.enabled)
                         }
                     }
-                    
+
                     Spacer()
-                    
+
                     if viewModel.sudoersBusy {
                         ProgressView()
                             .controlSize(.small)
                     }
                 }
                 .padding(.vertical, 6)
-                
+
                 if let actions = sudoersActions {
                     HStack {
                         Spacer()
                         actions
                     }
                 }
-                
+
                 if let error = viewModel.sudoersError {
-                    Text(error)
+                    Text(verbatim: error)
                         .font(.caption)
                         .foregroundColor(.red)
                 }
             }
-            
+
             Section("How it works") {
                 Text("openfortivpn needs root to create the VPN tunnel. OpenFortiMac adds a sudo rule so it can start without asking for your password every time.")
                     .font(.callout)
@@ -229,7 +314,7 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding(.top, 8)
     }
-    
+
     private var sudoersActions: AnyView? {
         let busy = viewModel.sudoersBusy
         switch viewModel.sudoersStatus {
@@ -260,7 +345,7 @@ struct SettingsView: View {
             return nil
         }
     }
-    
+
     private var sudoersIcon: String {
         switch viewModel.sudoersStatus {
         case .managed, .external: return "checkmark.shield.fill"
@@ -269,7 +354,7 @@ struct SettingsView: View {
         case .none: return "shield"
         }
     }
-    
+
     private var sudoersTint: Color {
         switch viewModel.sudoersStatus {
         case .managed, .external: return .green
@@ -278,42 +363,42 @@ struct SettingsView: View {
         case .none: return .secondary
         }
     }
-    
+
     private var sudoersStatusText: String {
         switch viewModel.sudoersStatus {
-        case .none: return "Checking…"
-        case .managed: return "openfortivpn can start without a password"
-        case .external: return "Allowed by a rule you added manually"
-        case .outdated: return "The rule points to a different openfortivpn"
-        case .missing: return "Not set up: connections will fail"
-        case .binaryNotFound: return "openfortivpn not found"
+        case .none: return String(localized: "Checking…")
+        case .managed: return String(localized: "openfortivpn can start without a password")
+        case .external: return String(localized: "Allowed by a rule you added manually")
+        case .outdated: return String(localized: "The rule points to a different openfortivpn")
+        case .missing: return String(localized: "Not set up: connections will fail")
+        case .binaryNotFound: return String(localized: "openfortivpn not found")
         }
     }
-    
+
     private var sudoersStatusDetail: String? {
         switch viewModel.sudoersStatus {
         case .managed, .outdated:
             return SudoersManager.rulePath
         case .external:
-            return "Not managed by OpenFortiMac (e.g. /etc/sudoers.d/openfortivpn)"
+            return String(localized: "Not managed by OpenFortiMac (e.g. /etc/sudoers.d/openfortivpn)")
         case .missing:
             return viewModel.resolvedOpenfortivpnPath
         case .binaryNotFound:
-            return "Install it with brew install openfortivpn, or set its path in General."
+            return String(localized: "Install it with brew install openfortivpn, or set its path in General.")
         case .none:
             return nil
         }
     }
-    
+
     // MARK: - General Tab
-    
+
     private var generalTab: some View {
         Form {
             Section("openfortivpn Binary") {
                 HStack {
                     TextField("Path:", text: $viewModel.openfortivpnPath)
                         .font(.system(.body, design: .monospaced))
-                    
+
                     Button("Browse...") {
                         let panel = NSOpenPanel()
                         panel.canChooseFiles = true
@@ -325,27 +410,46 @@ struct SettingsView: View {
                         }
                     }
                 }
-                
+
                 if !viewModel.isOpenfortivpnValid {
-                    Text("⚠️ Binary not found at this path")
+                    Label("Binary not found at this path", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundColor(.orange)
                 }
             }
-            
+
             Section("Startup") {
                 Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
             }
-            
+
+            Section("Updates") {
+                LabeledContent("Version") {
+                    Text(verbatim: PanelViewModel.appVersion)
+                        .textSelection(.enabled)
+                }
+                Toggle("Check for updates automatically", isOn: $viewModel.checkForUpdates)
+                HStack {
+                    updateStatusText
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    if case .available(let update) = viewModel.updateStatus {
+                        Button("Update") { NSWorkspace.shared.open(update.page) }
+                    }
+                    Button("Check Now") { viewModel.checkForUpdatesNow() }
+                        .disabled(viewModel.updateStatus == .checking)
+                }
+            }
+
             Section("Config File") {
                 HStack {
-                    Text(ConfigManager.configPath.path)
+                    Text(verbatim: ConfigManager.configPath.path)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.secondary)
                         .textSelection(.enabled)
-                    
+
                     Spacer()
-                    
+
                     Button("Reveal in Finder") {
                         NSWorkspace.shared.selectFile(
                             ConfigManager.configPath.path,
@@ -359,71 +463,159 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding(.top, 8)
     }
-    
+
+    @ViewBuilder
+    private var updateStatusText: some View {
+        switch viewModel.updateStatus {
+        case .idle:
+            Text("Asks GitHub for the latest release, once a day.")
+        case .checking:
+            Text("Checking…")
+        case .upToDate:
+            Text("OpenFortiMac is up to date.")
+        case .available(let update):
+            Text("Version \(update.version) is available")
+        case .failed:
+            Text("Could not reach GitHub.")
+        }
+    }
+
     // MARK: - Log Tab
-    
+
+    private var shownLogs: [LogEntry] {
+        let search = logSearch.trimmingCharacters(in: .whitespaces)
+        guard !search.isEmpty else { return vpn.logs }
+        return vpn.logs.filter { $0.text.localizedCaseInsensitiveContains(search) }
+    }
+
     private var logTab: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 2) {
-                        if viewModel.logs.isEmpty {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        if vpn.logs.isEmpty {
                             Text("No logs yet. Connect to a VPN to see activity.")
                                 .foregroundColor(.secondary)
                                 .padding()
                         } else {
-                            ForEach(Array(viewModel.logs.enumerated()), id: \.offset) { index, line in
-                                Text(line)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .textSelection(.enabled)
-                                    .id(index)
+                            ForEach(shownLogs) { entry in
+                                LogRow(entry: entry)
+                                    .id(entry.id)
                             }
-                            .padding(.horizontal)
+                            .padding(.horizontal, 12)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 10)
                 }
                 .background(Color(NSColor.textBackgroundColor))
+                .overlay(alignment: .topTrailing) {
+                    if vpn.isActive {
+                        liveBadge
+                            .padding(8)
+                    }
+                }
                 .onAppear {
                     scrollToBottom(proxy: proxy)
                 }
-                .onChange(of: viewModel.logs.count) { _ in
+                .onChange(of: vpn.logs.last?.id) { _ in
                     scrollToBottom(proxy: proxy)
                 }
             }
-            
+
             Divider()
-            
-            HStack {
-                Button("Copy to Clipboard") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(viewModel.logs.joined(separator: "\n"), forType: .string)
-                }
-                .buttonStyle(.borderless)
-                .disabled(viewModel.logs.isEmpty)
-                
-                Button("Clear") {
-                    viewModel.clearLogs()
-                }
-                .buttonStyle(.borderless)
-                .disabled(viewModel.logs.isEmpty)
-                
+
+            HStack(spacing: 14) {
+                TextField("Search…", text: $logSearch)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 180)
+
                 Spacer()
-                
-                Button("Refresh") {
-                    viewModel.loadLogs()
+
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(logText, forType: .string)
                 }
-                .buttonStyle(.borderless)
+                .disabled(vpn.logs.isEmpty)
+
+                Button("Save…") { saveLog() }
+                    .disabled(vpn.logs.isEmpty)
+
+                Button("Clear") { vpn.clearLogs() }
+                    .disabled(vpn.logs.isEmpty)
             }
+            .buttonStyle(.borderless)
             .padding(8)
             .background(Color(NSColor.controlBackgroundColor))
         }
     }
-    
+
+    /// The log follows the connection by itself while one is active.
+    private var liveBadge: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(Color.green)
+                .frame(width: 7, height: 7)
+            Text("live")
+                .font(.caption.weight(.medium))
+                .foregroundColor(.green)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(Color(NSColor.textBackgroundColor)))
+    }
+
+    private var logText: String {
+        shownLogs.map(\.text).joined(separator: "\n")
+    }
+
+    private func saveLog() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "OpenFortiMac log.txt"
+        if panel.runModal() == .OK, let url = panel.url {
+            try? (logText + "\n").write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+
     private func scrollToBottom(proxy: ScrollViewProxy) {
-        if !viewModel.logs.isEmpty {
-            proxy.scrollTo(viewModel.logs.count - 1, anchor: .bottom)
+        if let last = shownLogs.last {
+            proxy.scrollTo(last.id, anchor: .bottom)
+        }
+    }
+}
+
+// MARK: - Log Row
+
+private struct LogRow: View {
+    let entry: LogEntry
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(verbatim: entry.time)
+                .foregroundColor(.secondary)
+            Text(verbatim: entry.tag)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundColor(color)
+                .frame(width: 34)
+                .padding(.vertical, 1)
+                .background(
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(color.opacity(entry.level == .info ? 0.12 : 0.2))
+                )
+            Text(verbatim: entry.message)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(.caption, design: .monospaced))
+    }
+
+    private var color: Color {
+        switch entry.level {
+        case .info: return .secondary
+        case .ok: return .green
+        case .warning: return .orange
+        case .error: return .red
         }
     }
 }
@@ -432,6 +624,7 @@ struct SettingsView: View {
 
 struct ServerRowView: View {
     let server: VPNServer
+    let hasPassword: Bool
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -447,9 +640,9 @@ struct ServerRowView: View {
                 )
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(server.name)
+                Text(verbatim: server.name)
                     .font(.headline)
-                Text("\(server.host):\(server.port) · \(server.username)")
+                Text(verbatim: subtitle)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -457,7 +650,7 @@ struct ServerRowView: View {
 
             Spacer()
 
-            if KeychainHelper.read(for: server.id) == nil {
+            if !hasPassword {
                 Text("No password")
                     .font(.caption2.weight(.medium))
                     .foregroundColor(.orange)
@@ -486,6 +679,14 @@ struct ServerRowView: View {
         )
         .contentShape(Rectangle())
     }
+
+    private var subtitle: String {
+        let address = "\(server.host):\(server.port)"
+        if server.singleSignOn {
+            return "\(address) · \(String(localized: "Single sign-on"))"
+        }
+        return "\(address) · \(server.username)"
+    }
 }
 
 // MARK: - Server Edit
@@ -493,156 +694,207 @@ struct ServerRowView: View {
 struct ServerEditView: View {
     @ObservedObject var viewModel: SettingsViewModel
     let server: VPNServer?
-    
+
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var name: String = ""
     @State private var host: String = ""
     @State private var port: String = "443"
     @State private var username: String = ""
     @State private var password: String = ""
+    @State private var hasSavedPassword = false
+    @State private var icon: String = VPNServer.defaultIcon
     @State private var trustedCert: String = ""
     @State private var realm: String = ""
-    @State private var icon: String = VPNServer.defaultIcon
+    @State private var alwaysAskCode = false
+    /// Empty keeps openfortivpn's default
+    @State private var minTLS: String = ""
+    @State private var singleSignOn = false
+    @State private var showAdvanced = false
     @State private var validationError: String?
-    
+
     var isEditing: Bool { server != nil }
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            Text(isEditing ? "Edit Server" : "Add Server")
+            // LocalizedStringKey on both sides: a ternary of plain literals is not translated
+            Text(isEditing ? LocalizedStringKey("Edit Server") : LocalizedStringKey("Add Server"))
                 .font(.headline)
                 .padding(.top, 16)
-                .padding(.bottom, 12)
-            
+                .padding(.bottom, 4)
+
             Form {
-                TextField("Name:", text: $name)
-                    .frame(width: 280)
-                TextField("Host:", text: $host)
-                    .frame(width: 280)
-                TextField("Port:", text: $port)
-                    .frame(width: 280)
-                TextField("Username:", text: $username)
-                    .frame(width: 280)
-                SecureField("Password:", text: $password)
-                    .frame(width: 280)
-                TextField("Certificate (optional):", text: $trustedCert)
-                    .frame(width: 280)
-                    .font(.system(size: 11, design: .monospaced))
-                TextField("Realm (optional):", text: $realm)
-                    .frame(width: 280)
-                LabeledContent("Icon:") {
-                    HStack(spacing: 4) {
-                        ForEach(VPNServer.iconChoices, id: \.self) { choice in
-                            Button {
-                                icon = choice
-                            } label: {
-                                Image(systemName: choice)
-                                    .frame(width: 28, height: 24)
-                                    .foregroundColor(icon == choice ? .accentColor : .secondary)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(icon == choice ? Color.accentColor.opacity(0.15) : Color.clear)
-                                    )
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(choice)
-                        }
+                Section {
+                    TextField("Name", text: $name)
+                    TextField("Host", text: $host, prompt: Text(verbatim: "vpn.example.com"))
+                    TextField("Port", text: $port)
+                    if !singleSignOn {
+                        TextField("Username", text: $username)
+                        // The saved password is never loaded into the field
+                        SecureField("Password", text: $password,
+                                    prompt: hasSavedPassword ? Text("Saved · leave empty to keep") : nil)
                     }
-                    .frame(width: 280, alignment: .leading)
+                    LabeledContent("Icon") {
+                        iconPicker
+                    }
+                }
+
+                // Options most servers never need: closed until asked for
+                Section {
+                    if showAdvanced {
+                        TextField("Certificate", text: $trustedCert, prompt: Text("optional"))
+                        TextField("Realm", text: $realm, prompt: Text("optional"))
+                        Picker("One-time code", selection: $alwaysAskCode) {
+                            Text("Phone approval when available").tag(false)
+                            Text("Ask when connecting").tag(true)
+                        }
+                        Picker("Minimum TLS", selection: $minTLS) {
+                            Text("System default").tag("")
+                            ForEach(VPNServer.tlsChoices, id: \.self) { version in
+                                Text(verbatim: "TLS \(version)").tag(version)
+                            }
+                        }
+                        Toggle("Single sign-on (SAML)", isOn: $singleSignOn)
+                    }
+                } header: {
+                    Button {
+                        showAdvanced.toggle()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .frame(width: 12)
+                            Text("Advanced")
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .formStyle(.grouped)
             .scrollDisabled(true)
-            
+
             if let error = validationError {
-                Text(error)
+                Text(verbatim: error)
                     .font(.caption)
                     .foregroundColor(.red)
                     .padding(.horizontal)
             }
-            
-            Spacer()
-            
+
+            Spacer(minLength: 0)
+
             HStack {
                 Button("Cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
-                
+
                 Spacer()
-                
-                Button(isEditing ? "Save" : "Add") {
-                    if validate() {
-                        saveServer()
+
+                Button(isEditing ? LocalizedStringKey("Save") : LocalizedStringKey("Add")) {
+                    if validate(), saveServer() {
                         dismiss()
                     }
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(name.isEmpty || host.isEmpty || username.isEmpty)
+                .disabled(name.isEmpty || host.isEmpty || (username.isEmpty && !singleSignOn))
             }
             .padding()
         }
-        .frame(width: 440, height: 460)
+        .frame(width: 440, height: sheetHeight)
         .onAppear {
             if let server = server {
                 name = server.name
                 host = server.host
                 port = String(server.port)
                 username = server.username
-                password = KeychainHelper.read(for: server.id) ?? ""
+                hasSavedPassword = KeychainHelper.exists(for: server.id)
+                icon = server.iconName
                 trustedCert = server.trustedCert ?? ""
                 realm = server.realm ?? ""
-                icon = server.iconName
+                alwaysAskCode = server.alwaysAskCode
+                minTLS = server.minTLS ?? ""
+                singleSignOn = server.singleSignOn
+                // Open the section when it already holds something
+                showAdvanced = !trustedCert.isEmpty || !realm.isEmpty || alwaysAskCode || !minTLS.isEmpty || singleSignOn
             }
         }
     }
-    
+
+    /// The sheet follows what the form shows: Advanced open or closed, sign-in fields or not.
+    private var sheetHeight: CGFloat {
+        var height: CGFloat = 404
+        if showAdvanced {
+            height += 196
+        }
+        if singleSignOn {
+            height -= 76
+        }
+        return height
+    }
+
+    private var iconPicker: some View {
+        HStack(spacing: 4) {
+            ForEach(VPNServer.iconChoices, id: \.self) { choice in
+                Button {
+                    icon = choice
+                } label: {
+                    Image(systemName: choice)
+                        .frame(width: 28, height: 24)
+                        .foregroundColor(icon == choice ? .accentColor : .secondary)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(icon == choice ? Color.accentColor.opacity(0.15) : Color.clear)
+                        )
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(choice)
+            }
+        }
+    }
+
     private func validate() -> Bool {
         validationError = nil
-        
+
         let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedHost.isEmpty || trimmedHost.contains(" ") {
-            validationError = "Host cannot be empty or contain spaces"
+            validationError = String(localized: "Host cannot be empty or contain spaces")
             return false
         }
-        
+
         guard let portInt = Int(port), portInt >= 1, portInt <= 65535 else {
-            validationError = "Port must be a number between 1 and 65535"
+            validationError = String(localized: "Port must be a number between 1 and 65535")
             return false
         }
-        
+
         if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            validationError = "Name cannot be empty"
+            validationError = String(localized: "Name cannot be empty")
             return false
         }
-        
-        if username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            validationError = "Username cannot be empty"
+
+        if !singleSignOn && username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            validationError = String(localized: "Username cannot be empty")
             return false
         }
 
         // These values become "key = value" lines of openfortivpn's config file
-        let configValues: [(field: String, value: String)] = [
-            ("Host", trimmedHost),
-            ("Username", username.trimmingCharacters(in: .whitespacesAndNewlines)),
-            ("Password", password),
-            ("Certificate", trustedCert.trimmingCharacters(in: .whitespacesAndNewlines)),
-            ("Realm", realm.trimmingCharacters(in: .whitespacesAndNewlines)),
-        ]
-        if let invalid = configValues.first(where: { $0.value.contains(where: \.isNewline) }) {
-            validationError = "\(invalid.field) cannot contain line breaks"
+        let configValues = [trimmedHost, password] + [username, trustedCert, realm].map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if configValues.contains(where: { $0.contains(where: \.isNewline) }) {
+            validationError = String(localized: "Fields cannot contain line breaks")
             return false
         }
 
         host = trimmedHost
-        
+
         return true
     }
-    
-    private func saveServer() {
+
+    private func saveServer() -> Bool {
         let portInt = Int(port) ?? 443
+        let trimmedCert = trustedCert.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedRealm = realm.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let newServer = VPNServer(
@@ -650,30 +902,44 @@ struct ServerEditView: View {
             host: host,
             port: portInt,
             username: username.trimmingCharacters(in: .whitespacesAndNewlines),
-            password: nil,
-            trustedCert: trustedCert.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : trustedCert.trimmingCharacters(in: .whitespacesAndNewlines),
+            trustedCert: trimmedCert.isEmpty ? nil : trimmedCert,
             realm: trimmedRealm.isEmpty ? nil : trimmedRealm,
             icon: icon,
+            minTLS: minTLS.isEmpty ? nil : minTLS,
+            alwaysAskCode: alwaysAskCode,
+            singleSignOn: singleSignOn,
             id: server?.id
         )
-        
-        if !password.isEmpty {
-            _ = KeychainHelper.save(password: password, for: newServer.id)
+
+        if !password.isEmpty && !singleSignOn {
+            guard KeychainHelper.save(password: password, for: newServer.id) else {
+                validationError = String(localized: "The password could not be saved in the Keychain")
+                return false
+            }
         }
-        
+
         if let existingServer = server {
             viewModel.updateServer(existingServer, with: newServer)
         } else {
             viewModel.addServer(newServer)
         }
+        return true
     }
 }
 
 // MARK: - ViewModel
 
 class SettingsViewModel: ObservableObject {
+    enum UpdateStatus: Equatable {
+        case idle, checking, upToDate, failed
+        case available(AvailableUpdate)
+    }
+
     @Published var servers: [VPNServer] = []
-    @Published var logs: [String] = []
+    @Published private(set) var serversWithoutPassword: Set<String> = []
+    @Published private(set) var configIssue: ConfigIssue?
+    /// Result of the last import or export, shown for a few seconds
+    @Published private(set) var transferMessage: String?
     @Published var refreshID = UUID()
     @Published var openfortivpnPath: String = "" {
         didSet {
@@ -689,7 +955,16 @@ class SettingsViewModel: ObservableObject {
             }
         }
     }
-    
+    @Published var checkForUpdates: Bool = true {
+        didSet {
+            if oldValue != checkForUpdates {
+                UpdateChecker.shared.isEnabled = checkForUpdates
+                NotificationCenter.default.post(name: .updateSettingsChanged, object: nil)
+            }
+        }
+    }
+    @Published private(set) var updateStatus: UpdateStatus = .idle
+
     @Published private(set) var sudoersStatus: SudoersStatus?
     @Published private(set) var sudoersError: String?
     @Published private(set) var sudoersBusy = false
@@ -699,14 +974,19 @@ class SettingsViewModel: ObservableObject {
         FileManager.default.isExecutableFile(atPath: openfortivpnPath)
     }
 
-    private var logsObserver: NSObjectProtocol?
     private var pathObserver: AnyCancellable?
 
     init() {
+        // Set through the wrappers: assigning the properties here would run their didSet
+        // and rewrite config.json every time the window opens
+        _openfortivpnPath = Published(initialValue: ConfigManager.shared.config.openfortivpnPath)
+        _launchAtLogin = Published(initialValue: SMAppService.mainApp.status == .enabled)
+        _checkForUpdates = Published(initialValue: UpdateChecker.shared.isEnabled)
+        if let update = UpdateChecker.shared.knownUpdate, UpdateChecker.shared.isEnabled {
+            _updateStatus = Published(initialValue: .available(update))
+        }
+
         loadServers()
-        loadLogs()
-        openfortivpnPath = ConfigManager.shared.config.openfortivpnPath
-        loadLaunchAtLogin()
         refreshSudoersStatus()
 
         // The path is saved on every keystroke, so wait for typing to settle before asking sudo
@@ -717,41 +997,26 @@ class SettingsViewModel: ObservableObject {
             .sink { [weak self] _ in
                 self?.refreshSudoersStatus()
             }
+    }
 
-        logsObserver = NotificationCenter.default.addObserver(
-            forName: .vpnStateChanged,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.loadLogs()
-        }
-    }
-    
-    deinit {
-        if let observer = logsObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
-    
     func loadServers() {
         servers = []
         servers = ConfigManager.shared.config.servers
+        configIssue = ConfigManager.shared.loadIssue
+        refreshPasswordBadges()
     }
-    
-    func loadLogs() {
-        logs = VPNManager.shared.connectionLogs
+
+    /// Only asks the Keychain whether a password exists, never for the password itself.
+    private func refreshPasswordBadges() {
+        serversWithoutPassword = Set(servers.filter { !$0.singleSignOn && !KeychainHelper.exists(for: $0.id) }.map(\.id))
     }
-    
-    func clearLogs() {
-        logs = []
-    }
-    
+
     func addServer(_ server: VPNServer) {
         servers.append(server)
         saveConfig()
         refreshID = UUID()
     }
-    
+
     func updateServer(_ oldServer: VPNServer, with newServer: VPNServer) {
         if let index = servers.firstIndex(where: { $0.id == oldServer.id }) {
             servers[index] = newServer
@@ -759,7 +1024,7 @@ class SettingsViewModel: ObservableObject {
             refreshID = UUID()
         }
     }
-    
+
     func deleteServers(at offsets: IndexSet) {
         for index in offsets {
             KeychainHelper.delete(for: servers[index].id)
@@ -768,17 +1033,96 @@ class SettingsViewModel: ObservableObject {
         saveConfig()
         refreshID = UUID()
     }
-    
+
     func moveServers(from source: IndexSet, to destination: Int) {
         servers.move(fromOffsets: source, toOffset: destination)
         saveConfig()
     }
-    
+
+    /// Adds a copy right below the original, with the same saved password.
+    func duplicate(_ server: VPNServer) {
+        guard let index = servers.firstIndex(where: { $0.id == server.id }) else { return }
+        let copy = server.copy(named: String(localized: "\(server.name) copy"))
+        if let password = KeychainHelper.read(for: server.id), !password.isEmpty {
+            _ = KeychainHelper.save(password: password, for: copy.id)
+        }
+        servers.insert(copy, at: index + 1)
+        saveConfig()
+        refreshID = UUID()
+    }
+
     private func saveConfig() {
         ConfigManager.shared.saveServers(servers)
+        refreshPasswordBadges()
         NotificationCenter.default.post(name: .configChanged, object: nil)
     }
-    
+
+    func revealConfigFolder() {
+        let folder = ConfigManager.configPath.deletingLastPathComponent()
+        let file = configIssue?.backup.map { folder.appendingPathComponent($0) } ?? ConfigManager.configPath
+        NSWorkspace.shared.activateFileViewerSelecting([file])
+    }
+
+    // MARK: - Import and export
+
+    /// Writes the servers, without passwords, in the same format as config.json.
+    func exportServers(to url: URL) {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try encoder.encode(ExportedServers(servers: servers)).write(to: url, options: .atomic)
+            show(String(localized: "Exported \(servers.count) servers"))
+        } catch {
+            show(String(localized: "The file could not be written"))
+        }
+    }
+
+    /// Adds the servers of an exported file (or of another config.json) as new entries.
+    func importServers(from url: URL) {
+        guard let data = try? Data(contentsOf: url),
+              let file = try? JSONDecoder().decode(AppConfig.self, from: data),
+              !file.servers.isEmpty else {
+            show(String(localized: "No servers found in the file"))
+            return
+        }
+        // New identities: importing twice, or a file from this same Mac, never overwrites a server
+        servers.append(contentsOf: file.servers.map { $0.copy() })
+        saveConfig()
+        refreshID = UUID()
+        show(String(localized: "Imported \(file.servers.count) servers"))
+    }
+
+    private struct ExportedServers: Encodable {
+        let servers: [VPNServer]
+    }
+
+    private func show(_ message: String) {
+        transferMessage = message
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            if self?.transferMessage == message {
+                self?.transferMessage = nil
+            }
+        }
+    }
+
+    // MARK: - Updates
+
+    func checkForUpdatesNow() {
+        updateStatus = .checking
+        UpdateChecker.shared.check { [weak self] reached in
+            guard reached else {
+                self?.updateStatus = .failed
+                return
+            }
+            if let update = UpdateChecker.shared.knownUpdate {
+                self?.updateStatus = .available(update)
+            } else {
+                self?.updateStatus = .upToDate
+            }
+            NotificationCenter.default.post(name: .updateSettingsChanged, object: nil)
+        }
+    }
+
     // MARK: - Administrator Permission
 
     func refreshSudoersStatus() {
@@ -826,10 +1170,6 @@ class SettingsViewModel: ObservableObject {
 
     // MARK: - Launch at Login
 
-    private func loadLaunchAtLogin() {
-        launchAtLogin = (SMAppService.mainApp.status == .enabled)
-    }
-    
     private func updateLaunchAtLogin() {
         do {
             if launchAtLogin {
