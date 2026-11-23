@@ -462,9 +462,11 @@ private struct FailureBox: View {
 // MARK: - Two-factor code
 
 #if DEBUG
-/// Lets rendering checks show the code field with something typed in it.
+/// Lets the demo renderer (scripts/make_panel_demo.py) show states that need a person:
+/// something typed in the code field, the pointer over a server.
 enum PanelPreview {
     static var code = ""
+    static var hoveredServerID: String?
 }
 #endif
 
@@ -594,6 +596,13 @@ private struct PanelServerRow: View {
 
     @State private var hovering = false
 
+    private var isHovering: Bool {
+        #if DEBUG
+        if PanelPreview.hoveredServerID == server.id { return true }
+        #endif
+        return hovering
+    }
+
     var body: some View {
         Button {
             if canConnect { onConnect() }
@@ -624,7 +633,7 @@ private struct PanelServerRow: View {
                     Circle()
                         .fill(palette.good)
                         .frame(width: 8, height: 8)
-                } else if hovering && canConnect {
+                } else if isHovering && canConnect {
                     Group {
                         if hasPassword {
                             Text("Connect")
@@ -640,7 +649,7 @@ private struct PanelServerRow: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(hovering && canConnect ? Color.primary.opacity(0.08) : Color.clear)
+                    .fill(isHovering && canConnect ? Color.primary.opacity(0.08) : Color.clear)
             )
             .contentShape(Rectangle())
         }

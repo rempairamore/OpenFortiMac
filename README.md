@@ -10,7 +10,9 @@ A native macOS menu bar app for managing [OpenFortiVPN](https://github.com/adrie
 - Light, Dark and Dracula themes
 - In English, with Italian as an option
 
-<img src="docs/assets/openfortimac-panel-demo.gif" width="356" alt="Click the OpenFortiMac menu bar icon, then Connect on a server: the panel shows Connecting and then Connected with the tunnel IP">
+<img src="docs/assets/openfortimac-panel-demo.gif" width="356" alt="Click the OpenFortiMac shield in the menu bar, then Connect on a server: the shield fills up while connecting and turns green, and the panel shows the tunnel's IP address and traffic">
+
+<img src="docs/assets/openfortimac-themes.png" width="820" alt="The panel in the three themes: Light while it waits for a two-factor code, Dark while connected, Dracula with a notice about a VPN left running and one about an update">
 
 
 ## Installation
@@ -49,11 +51,17 @@ gh attestation verify OpenFortiMac_v1.3.1.dmg -R rempairamore/OpenFortiMac
 
 Homebrew checks the same SHA-256 before installing.
 
-Releases are signed with the self-signed certificate "OpenFortiMac Self-Signed" (SHA-1 `7F:43:4F:39:7A:3D:70:CD:9A:0E:9F:74:C0:5D:30:E8:08:04:F1:AA`). It is not an Apple certificate, so Gatekeeper still asks you to confirm the first launch, but it keeps the app's identity stable: macOS does not ask for Keychain access again after updates. Check it with `codesign -dvv /Applications/OpenFortiMac.app`.
+Releases are signed with the self-signed certificate "OpenFortiMac Self-Signed" (SHA-1 `7F:43:4F:39:7A:3D:70:CD:9A:0E:9F:74:C0:5D:30:E8:08:04:F1:AA`). It is not an Apple certificate, so Gatekeeper still asks you to confirm the first launch, and macOS asks for Keychain access once after every update (see [After an update](#after-an-update)). Check it with `codesign -dvv /Applications/OpenFortiMac.app`.
 
 ### First launch
 
 OpenFortiMac is not notarized by Apple, so macOS blocks it the first time. Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to the OpenFortiMac message. This is needed only once.
+
+### After an update
+
+The first time you connect after an update, macOS says that OpenFortiMac wants to access the key "OpenFortiMac passwords" and asks for your login keychain password. Type it and choose **Always Allow**: with **Allow** it would ask at every connection.
+
+This comes back once per update. Without an Apple developer team, macOS ties the permission on a Keychain item to the exact build of the app, and every release is a new build. All the passwords are in one Keychain item, so it asks once, whatever the number of servers.
 
 ### Allow openfortivpn to run as root
 
@@ -87,7 +95,7 @@ The path is `/opt/homebrew/bin/openfortivpn` on Apple Silicon and `/usr/local/bi
 
 ### Configure
 
-A lock icon appears in the menu bar. Click it → **Settings** → **Servers** tab → add your VPN servers.
+A shield icon appears in the menu bar. Click it → **Settings** → **Servers** tab → add your VPN servers.
 
 ## Usage
 
@@ -117,9 +125,9 @@ Each server can have its own icon, chosen in the server editor.
 
 | Icon | Status |
 |------|--------|
-| 🔓 | Disconnected |
-| 🔄 (turning) | Connecting / Disconnecting |
-| 🔒 (green) | Connected |
+| Dimmed shield | Disconnected |
+| Shield filling up and emptying | Connecting / Disconnecting |
+| Green shield with a check | Connected |
 
 The app sends native macOS notifications on connect, disconnect, and errors.
 
@@ -210,7 +218,7 @@ brew uninstall --zap --cask rempairamore/tap/openfortimac
 4. Remove config: `rm -rf ~/Library/Application\ Support/OpenFortiMac`
 5. Remove preferences: `defaults delete rempairamore.OpenFortiMac`
 
-Deleting a server in Settings also deletes its password from the Keychain. If you removed the app without doing that, the passwords are the `com.openfortimac.vpn` items in **Keychain Access**.
+Deleting a server in Settings also deletes its password from the Keychain. If you removed the app without doing that, the passwords are in the item **OpenFortiMac passwords** in **Keychain Access** (versions before 1.4.2 kept one `com.openfortimac.vpn` item per server).
 
 If you followed the manual setup of older versions, also run `sudo rm /etc/sudoers.d/openfortivpn`.
 
@@ -229,4 +237,4 @@ To try a build without shipping it, push a tag with a suffix (for example `v1.3.
 
 Local builds use the certificate when it is in your keychain and fall back to an ad-hoc signature otherwise.
 
-The demo GIF at the top of this README is generated with `python3 scripts/make_panel_demo.py` (macOS and ffmpeg required) from example data.
+The pictures at the top of this README are drawn from the app's real views with example data: `uv run --with pillow scripts/make_panel_demo.py` (macOS with Xcode 26). Run it again when the panel changes.
