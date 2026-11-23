@@ -7,7 +7,8 @@ A native macOS menu bar app for managing [OpenFortiVPN](https://github.com/adrie
 - One click to connect; when a connection fails, the panel says why
 - Two-factor codes (FortiToken, email, SMS) and single sign-on (SAML)
 - Passwords in the macOS Keychain, never in a file
-- English and Italian
+- Light, Dark and Dracula themes
+- In English, with Italian as an option
 
 <img src="docs/assets/openfortimac-panel-demo.gif" width="356" alt="Click the OpenFortiMac menu bar icon, then Connect on a server: the panel shows Connecting and then Connected with the tunnel IP">
 
@@ -128,7 +129,7 @@ The app sends native macOS notifications on connect, disconnect, and errors.
 
 **Settings → Log** shows what openfortivpn prints, live, with search and **Save…**.
 
-The app is in English and Italian, following the language of your Mac.
+**Settings → General → Appearance** has the **Theme** (Light, Dark or Dracula; the app starts in Dark, whatever the appearance of your Mac) and the **Language**: the app is in English, and Italian applies when the app restarts.
 
 ## Configuration
 

@@ -9,6 +9,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private let panelModel = PanelViewModel()
     private let popover = NSPopover()
+    /// Colors the frame of the panel in themes that have their own background
+    private var popoverBackdrop: NSView?
     private var sigtermSource: DispatchSourceSignal?
     private var terminationReplied = false
     private var iconAnimation: Timer?
@@ -17,6 +19,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        // Light, dark or Dracula: chosen in Settings, not taken from the Mac
+        ThemeManager.shared.apply()
+        NotificationCenter.default.addObserver(forName: .themeChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.applyThemeToWindows()
+        }
         vpnManager.requestNotificationPermission()
 
         // `kill` and some shutdowns send SIGTERM, which would end the app on the spot:
@@ -85,6 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         controller.sizingOptions = .preferredContentSize
         popover.contentViewController = controller
         popover.behavior = .transient
+        popover.appearance = ThemeManager.shared.theme.appearance
         popover.animates = true
     }
 
@@ -111,7 +119,52 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Activate so the panel's keyboard shortcuts (⌘D, ⌘,, ⌘Q) work right away
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        colorPopoverFrame()
         popover.contentViewController?.view.window?.makeKey()
+    }
+
+    // MARK: - Theme
+
+    /// The SwiftUI views repaint by themselves; the pieces AppKit draws (the title bar of
+    /// Settings, the arrow of the panel) are colored here.
+    private func applyThemeToWindows() {
+        // A popover takes its appearance from the view it hangs from, here the menu bar,
+        // not from the app: it has to be told
+        popover.appearance = ThemeManager.shared.theme.appearance
+        if let window = settingsWindow {
+            styleSettingsWindow(window)
+        }
+        if popover.isShown {
+            colorPopoverFrame()
+        }
+    }
+
+    private func styleSettingsWindow(_ window: NSWindow) {
+        window.appearance = ThemeManager.shared.theme.appearance
+        if let background = ThemeManager.shared.theme.palette.background {
+            window.titlebarAppearsTransparent = true
+            window.backgroundColor = background
+        } else {
+            window.titlebarAppearsTransparent = false
+            window.backgroundColor = .windowBackgroundColor
+        }
+    }
+
+    /// A popover draws its own frame and arrow. A view of the theme's color placed under the
+    /// content, inside that frame, takes its shape, arrow included.
+    private func colorPopoverFrame() {
+        popoverBackdrop?.removeFromSuperview()
+        popoverBackdrop = nil
+        guard let background = ThemeManager.shared.theme.palette.panel,
+              let contentView = popover.contentViewController?.view,
+              let frameView = contentView.superview else { return }
+
+        let backdrop = NSView(frame: frameView.bounds)
+        backdrop.wantsLayer = true
+        backdrop.layer?.backgroundColor = background.cgColor
+        backdrop.autoresizingMask = [.width, .height]
+        frameView.addSubview(backdrop, positioned: .below, relativeTo: contentView)
+        popoverBackdrop = backdrop
     }
 
     /// Right click keeps a classic menu for quick access.
@@ -260,6 +313,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.center()
         window.setFrameAutosaveName("SettingsWindow")
         window.delegate = self
+        styleSettingsWindow(window)
 
         settingsWindow = window
         window.makeKeyAndOrderFront(nil)

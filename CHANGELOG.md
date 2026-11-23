@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.1
+
+### Added
+- **Theme** in Settings → General: Light, Dark or Dracula. The app starts in Dark and no longer follows the appearance of the Mac
+- **Language** in Settings → General: English or Italian, applied when the app restarts
+
+### Changed
+- The app is in English on every Mac again. 1.4.0 followed the language of the Mac, so it turned Italian where that is the system language
+- A larger field for the two-factor code, the Log in its own box, and one background with larger buttons in the server editor
+
 ## v1.4.0
 
 ### Added

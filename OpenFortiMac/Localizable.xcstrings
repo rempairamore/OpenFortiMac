@@ -151,6 +151,16 @@
         }
       }
     },
+    "Appearance" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aspetto"
+          }
+        }
+      }
+    },
     "Are you sure you want to delete \"%@\"?" : {
       "localizations" : {
         "it" : {
@@ -481,6 +491,16 @@
         }
       }
     },
+    "Dark" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scuro"
+          }
+        }
+      }
+    },
     "Delete" : {
       "localizations" : {
         "it" : {
@@ -547,6 +567,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Doppio clic per modificare, trascina per riordinare"
+          }
+        }
+      }
+    },
+    "Dracula" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dracula"
           }
         }
       }
@@ -841,6 +871,16 @@
         }
       }
     },
+    "Language" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lingua"
+          }
+        }
+      }
+    },
     "Last attempt failed" : {
       "localizations" : {
         "it" : {
@@ -867,6 +907,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "È rimasta da una sessione precedente."
+          }
+        }
+      }
+    },
+    "Light" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiaro"
           }
         }
       }
@@ -1291,6 +1341,36 @@
         }
       }
     },
+    "Restart Now" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riavvia ora"
+          }
+        }
+      }
+    },
+    "Restart OpenFortiMac to apply." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riavvia OpenFortiMac per applicarla."
+          }
+        }
+      }
+    },
+    "Restart OpenFortiMac to apply. The VPN will disconnect." : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riavvia OpenFortiMac per applicarla. La VPN verrà disconnessa."
+          }
+        }
+      }
+    },
     "Reveal in Finder" : {
       "localizations" : {
         "it" : {
@@ -1597,6 +1677,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "L’accesso non è stato completato in tempo."
+          }
+        }
+      }
+    },
+    "Theme" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tema"
           }
         }
       }
