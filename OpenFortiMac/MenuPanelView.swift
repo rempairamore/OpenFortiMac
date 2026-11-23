@@ -32,6 +32,7 @@ struct MenuPanelView: View {
             footer
         }
         .frame(width: 320)
+        .themed(.panel)
     }
 
     // MARK: - Banners
@@ -196,6 +197,7 @@ struct MenuPanelView: View {
 
 private struct StatusCard: View {
     @ObservedObject var vpn: VPNManager
+    @Environment(\.palette) private var palette
     let model: PanelViewModel
 
     var body: some View {
@@ -279,7 +281,7 @@ private struct StatusCard: View {
         .padding(.vertical, 9)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.primary.opacity(0.05))
+                .fill(palette.card)
         )
     }
 
@@ -298,9 +300,9 @@ private struct StatusCard: View {
 
     private var tint: Color {
         switch vpn.state {
-        case .connected: return .green
-        case .connecting, .disconnecting: return .orange
-        case .disconnected: return failure == nil ? .secondary : .red
+        case .connected: return palette.good
+        case .connecting, .disconnecting: return palette.busy
+        case .disconnected: return failure == nil ? .secondary : palette.bad
         }
     }
 
@@ -376,6 +378,7 @@ private struct DetailRow: View {
 
 /// Why the last attempt failed, with what to do next.
 private struct FailureBox: View {
+    @Environment(\.palette) private var palette
     let failure: ConnectionFailure
     let model: PanelViewModel
 
@@ -409,7 +412,7 @@ private struct FailureBox: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.red.opacity(0.13))
+                .fill(palette.bad.opacity(0.13))
         )
     }
 
@@ -441,7 +444,7 @@ private struct FailureBox: View {
         Button(action: action) {
             Text(title)
                 .font(.caption.weight(.medium))
-                .foregroundColor(.accentColor)
+                .foregroundColor(palette.accent)
         }
         .buttonStyle(.plain)
     }
@@ -458,10 +461,40 @@ private struct FailureBox: View {
 
 // MARK: - Two-factor code
 
+#if DEBUG
+/// Lets rendering checks show the code field with something typed in it.
+enum PanelPreview {
+    static var code = ""
+}
+#endif
+
+/// Filled with the accent color and as tall as the field next to it.
+private struct AccentButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.palette) private var palette
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundColor(palette.onAccent)
+            .padding(.horizontal, 14)
+            .frame(height: CodeEntry.fieldHeight)
+            .background(RoundedRectangle(cornerRadius: 8).fill(palette.accent))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.45)
+    }
+}
+
 private struct CodeEntry: View {
+    static let fieldHeight: CGFloat = 34
+
     let onSend: (String) -> Void
 
+    @Environment(\.palette) private var palette
+    #if DEBUG
+    @State private var code = PanelPreview.code
+    #else
     @State private var code = ""
+    #endif
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -470,16 +503,21 @@ private struct CodeEntry: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             HStack(spacing: 8) {
+                // The one thing to do in this state: a large field with the accent outline
                 TextField("", text: $code)
                     .labelsHidden()
                     .accessibilityLabel("Two-factor code")
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 15, weight: .medium).monospacedDigit())
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 18, weight: .medium).monospacedDigit())
                     .textContentType(.oneTimeCode)
                     .focused($focused)
                     .onSubmit(send)
+                    .padding(.horizontal, 10)
+                    .frame(height: Self.fieldHeight)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(palette.inset))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(palette.accent, lineWidth: 2))
                 Button("Send", action: send)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(AccentButtonStyle())
                     .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             Text("From your authenticator app, email or SMS.")
@@ -513,6 +551,8 @@ private struct PanelBanner: View, Identifiable {
     let action: LocalizedStringKey
     let onAction: () -> Void
 
+    @Environment(\.palette) private var palette
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: style == .warning ? "exclamationmark.circle.fill" : "arrow.up.circle.fill")
@@ -538,13 +578,14 @@ private struct PanelBanner: View, Identifiable {
     }
 
     private var tint: Color {
-        style == .warning ? .orange : .blue
+        style == .warning ? palette.warning : palette.news
     }
 }
 
 // MARK: - Server Row
 
 private struct PanelServerRow: View {
+    @Environment(\.palette) private var palette
     let server: VPNServer
     let isActive: Bool
     let canConnect: Bool
@@ -560,7 +601,7 @@ private struct PanelServerRow: View {
             HStack(spacing: 10) {
                 Image(systemName: server.iconName)
                     .frame(width: 20)
-                    .foregroundColor(isActive ? .green : .secondary)
+                    .foregroundColor(isActive ? palette.good : .secondary)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: server.name)
@@ -573,7 +614,7 @@ private struct PanelServerRow: View {
                         }
                     }
                     .font(.caption)
-                    .foregroundColor(hasPassword ? .secondary : .orange)
+                    .foregroundColor(hasPassword ? .secondary : palette.warning)
                     .lineLimit(1)
                 }
 
@@ -581,7 +622,7 @@ private struct PanelServerRow: View {
 
                 if isActive {
                     Circle()
-                        .fill(Color.green)
+                        .fill(palette.good)
                         .frame(width: 8, height: 8)
                 } else if hovering && canConnect {
                     Group {
@@ -592,7 +633,7 @@ private struct PanelServerRow: View {
                         }
                     }
                     .font(.caption.weight(.medium))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(palette.accent)
                 }
             }
             .padding(.horizontal, 8)

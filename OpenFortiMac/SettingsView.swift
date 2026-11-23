@@ -16,6 +16,7 @@ enum ServerEditorRequest: Equatable {
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     @ObservedObject private var vpn = VPNManager.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
     @State private var selectedServer: VPNServer?
     @State private var showingAddServer = false
     @State private var showingEditServer = false
@@ -24,6 +25,9 @@ struct SettingsView: View {
     @State private var serverToDelete: VPNServer?
     @State private var showingDeleteConfirm = false
     @State private var logSearch = ""
+
+    /// This view is the root of its window, so it takes the colors from the source
+    private var palette: Palette { themeManager.theme.palette }
 
     init(initialTab: SettingsTab = .servers, initialEditor: ServerEditorRequest? = nil) {
         _selectedTab = State(initialValue: initialTab)
@@ -56,7 +60,8 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.log)
         }
-        .frame(width: 540, height: 540)
+        .frame(width: 540, height: 700)
+        .themed(.window)
         .onReceive(NotificationCenter.default.publisher(for: .showSettingsTab)) { notification in
             if let tab = notification.object as? SettingsTab {
                 selectedTab = tab
@@ -166,6 +171,7 @@ struct SettingsView: View {
                     .onMove(perform: viewModel.moveServers)
                 }
                 .listStyle(.inset)
+                .themedForm()
                 .id(viewModel.refreshID)
             }
 
@@ -200,14 +206,14 @@ struct SettingsView: View {
                 }
             }
             .padding(10)
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(palette.bar)
         }
     }
 
     private func configIssueBanner(_ issue: ConfigIssue) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.circle.fill")
-                .foregroundColor(.orange)
+                .foregroundColor(palette.warning)
             VStack(alignment: .leading, spacing: 2) {
                 switch issue {
                 case .unreadable:
@@ -235,7 +241,7 @@ struct SettingsView: View {
                 .controlSize(.small)
         }
         .padding(10)
-        .background(Color.orange.opacity(0.14))
+        .background(palette.warning.opacity(0.14))
     }
 
     private func importServers() {
@@ -262,56 +268,61 @@ struct SettingsView: View {
 
     private var permissionTab: some View {
         Form {
-            Section {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: sudoersIcon)
-                        .font(.system(size: 28))
-                        .foregroundColor(sudoersTint)
-                        .frame(width: 36)
+            // One call colors the rows of every section
+            Group {
+                Section {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: sudoersIcon)
+                            .font(.system(size: 28))
+                            .foregroundColor(sudoersTint)
+                            .frame(width: 36)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(verbatim: sudoersStatusText)
-                            .font(.headline)
-                        if let detail = sudoersStatusDetail {
-                            Text(verbatim: detail)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundColor(.secondary)
-                                .textSelection(.enabled)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(verbatim: sudoersStatusText)
+                                .font(.headline)
+                            if let detail = sudoersStatusDetail {
+                                Text(verbatim: detail)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                        }
+
+                        Spacer()
+
+                        if viewModel.sudoersBusy {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    }
+                    .padding(.vertical, 6)
+
+                    if let actions = sudoersActions {
+                        HStack {
+                            Spacer()
+                            actions
                         }
                     }
 
-                    Spacer()
-
-                    if viewModel.sudoersBusy {
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-                }
-                .padding(.vertical, 6)
-
-                if let actions = sudoersActions {
-                    HStack {
-                        Spacer()
-                        actions
+                    if let error = viewModel.sudoersError {
+                        Text(verbatim: error)
+                            .font(.caption)
+                            .foregroundColor(palette.bad)
                     }
                 }
 
-                if let error = viewModel.sudoersError {
-                    Text(verbatim: error)
-                        .font(.caption)
-                        .foregroundColor(.red)
+                Section("How it works") {
+                    Text("openfortivpn needs root to create the VPN tunnel. OpenFortiMac adds a sudo rule so it can start without asking for your password every time.")
+                        .font(.callout)
+                    Text("Any app running as your user gains the same ability. Remove the rule if you stop using OpenFortiMac.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
                 }
             }
-
-            Section("How it works") {
-                Text("openfortivpn needs root to create the VPN tunnel. OpenFortiMac adds a sudo rule so it can start without asking for your password every time.")
-                    .font(.callout)
-                Text("Any app running as your user gains the same ability. Remove the rule if you stop using OpenFortiMac.")
-                    .font(.callout)
-                    .foregroundColor(.secondary)
-            }
+            .listRowBackground(palette.row)
         }
         .formStyle(.grouped)
+        .themedForm()
         .padding(.top, 8)
     }
 
@@ -357,9 +368,9 @@ struct SettingsView: View {
 
     private var sudoersTint: Color {
         switch viewModel.sudoersStatus {
-        case .managed, .external: return .green
-        case .outdated, .missing: return .orange
-        case .binaryNotFound: return .red
+        case .managed, .external: return palette.good
+        case .outdated, .missing: return palette.warning
+        case .binaryNotFound: return palette.bad
         case .none: return .secondary
         }
     }
@@ -394,73 +405,108 @@ struct SettingsView: View {
 
     private var generalTab: some View {
         Form {
-            Section("openfortivpn Binary") {
-                HStack {
-                    TextField("Path:", text: $viewModel.openfortivpnPath)
-                        .font(.system(.body, design: .monospaced))
+            // One call colors the rows of every section
+            Group {
+                Section("openfortivpn Binary") {
+                    HStack {
+                        TextField("Path:", text: $viewModel.openfortivpnPath)
+                            .font(.system(.body, design: .monospaced))
 
-                    Button("Browse...") {
-                        let panel = NSOpenPanel()
-                        panel.canChooseFiles = true
-                        panel.canChooseDirectories = false
-                        panel.allowsMultipleSelection = false
-                        panel.directoryURL = URL(fileURLWithPath: "/opt/homebrew/bin")
-                        if panel.runModal() == .OK, let url = panel.url {
-                            viewModel.openfortivpnPath = url.path
+                        Button("Browse...") {
+                            let panel = NSOpenPanel()
+                            panel.canChooseFiles = true
+                            panel.canChooseDirectories = false
+                            panel.allowsMultipleSelection = false
+                            panel.directoryURL = URL(fileURLWithPath: "/opt/homebrew/bin")
+                            if panel.runModal() == .OK, let url = panel.url {
+                                viewModel.openfortivpnPath = url.path
+                            }
+                        }
+                    }
+
+                    if !viewModel.isOpenfortivpnValid {
+                        Label("Binary not found at this path", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundColor(palette.warning)
+                    }
+                }
+
+                Section("Startup") {
+                    Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
+                }
+
+                Section("Appearance") {
+                    Picker("Theme", selection: $themeManager.theme) {
+                        ForEach(AppTheme.allCases) { theme in
+                            Text(theme.name).tag(theme)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    Picker("Language", selection: $viewModel.language) {
+                        ForEach(AppLanguage.allCases) { language in
+                            Text(verbatim: language.name).tag(language)
+                        }
+                    }
+                    // The interface changes language only when the app starts
+                    if viewModel.languageNeedsRestart {
+                        HStack {
+                            Group {
+                                if vpn.isActive {
+                                    Text("Restart OpenFortiMac to apply. The VPN will disconnect.")
+                                } else {
+                                    Text("Restart OpenFortiMac to apply.")
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            Spacer()
+                            Button("Restart Now") { AppLanguage.restartApp() }
                         }
                     }
                 }
 
-                if !viewModel.isOpenfortivpnValid {
-                    Label("Binary not found at this path", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-            }
-
-            Section("Startup") {
-                Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
-            }
-
-            Section("Updates") {
-                LabeledContent("Version") {
-                    Text(verbatim: PanelViewModel.appVersion)
-                        .textSelection(.enabled)
-                }
-                Toggle("Check for updates automatically", isOn: $viewModel.checkForUpdates)
-                HStack {
-                    updateStatusText
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    if case .available(let update) = viewModel.updateStatus {
-                        Button("Update") { NSWorkspace.shared.open(update.page) }
+                Section("Updates") {
+                    LabeledContent("Version") {
+                        Text(verbatim: PanelViewModel.appVersion)
+                            .textSelection(.enabled)
                     }
-                    Button("Check Now") { viewModel.checkForUpdatesNow() }
-                        .disabled(viewModel.updateStatus == .checking)
-                }
-            }
-
-            Section("Config File") {
-                HStack {
-                    Text(verbatim: ConfigManager.configPath.path)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .textSelection(.enabled)
-
-                    Spacer()
-
-                    Button("Reveal in Finder") {
-                        NSWorkspace.shared.selectFile(
-                            ConfigManager.configPath.path,
-                            inFileViewerRootedAtPath: ConfigManager.configPath.deletingLastPathComponent().path
-                        )
+                    Toggle("Check for updates automatically", isOn: $viewModel.checkForUpdates)
+                    HStack {
+                        updateStatusText
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        if case .available(let update) = viewModel.updateStatus {
+                            Button("Update") { NSWorkspace.shared.open(update.page) }
+                        }
+                        Button("Check Now") { viewModel.checkForUpdatesNow() }
+                            .disabled(viewModel.updateStatus == .checking)
                     }
-                    .buttonStyle(.borderless)
+                }
+
+                Section("Config File") {
+                    HStack {
+                        Text(verbatim: ConfigManager.configPath.path)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .textSelection(.enabled)
+
+                        Spacer()
+
+                        Button("Reveal in Finder") {
+                            NSWorkspace.shared.selectFile(
+                                ConfigManager.configPath.path,
+                                inFileViewerRootedAtPath: ConfigManager.configPath.deletingLastPathComponent().path
+                            )
+                        }
+                        .buttonStyle(.borderless)
+                    }
                 }
             }
+            .listRowBackground(palette.row)
         }
         .formStyle(.grouped)
+        .themedForm()
         .padding(.top, 8)
     }
 
@@ -489,7 +535,7 @@ struct SettingsView: View {
     }
 
     private var logTab: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 10) {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 4) {
@@ -508,7 +554,9 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 10)
                 }
-                .background(Color(NSColor.textBackgroundColor))
+                .background(palette.inset)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08)))
                 .overlay(alignment: .topTrailing) {
                     if vpn.isActive {
                         liveBadge
@@ -523,9 +571,7 @@ struct SettingsView: View {
                 }
             }
 
-            Divider()
-
-            HStack(spacing: 14) {
+            HStack(spacing: 16) {
                 TextField("Search…", text: $logSearch)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 180)
@@ -544,25 +590,24 @@ struct SettingsView: View {
                 Button("Clear") { vpn.clearLogs() }
                     .disabled(vpn.logs.isEmpty)
             }
-            .buttonStyle(.borderless)
-            .padding(8)
-            .background(Color(NSColor.controlBackgroundColor))
+            .buttonStyle(TextLinkStyle())
         }
+        .padding(12)
     }
 
     /// The log follows the connection by itself while one is active.
     private var liveBadge: some View {
         HStack(spacing: 5) {
             Circle()
-                .fill(Color.green)
+                .fill(palette.good)
                 .frame(width: 7, height: 7)
             Text("live")
                 .font(.caption.weight(.medium))
-                .foregroundColor(.green)
+                .foregroundColor(palette.good)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(Capsule().fill(Color(NSColor.textBackgroundColor)))
+        .background(Capsule().fill(palette.inset))
     }
 
     private var logText: String {
@@ -585,10 +630,26 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - Text Link
+
+/// A text button in the theme's accent color.
+private struct TextLinkStyle: ButtonStyle {
+    @Environment(\.palette) private var palette
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundColor(palette.accent)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.6 : 1) : 0.4)
+            .contentShape(Rectangle())
+    }
+}
+
 // MARK: - Log Row
 
 private struct LogRow: View {
     let entry: LogEntry
+    @Environment(\.palette) private var palette
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -613,9 +674,9 @@ private struct LogRow: View {
     private var color: Color {
         switch entry.level {
         case .info: return .secondary
-        case .ok: return .green
-        case .warning: return .orange
-        case .error: return .red
+        case .ok: return palette.good
+        case .warning: return palette.warning
+        case .error: return palette.bad
         }
     }
 }
@@ -623,6 +684,7 @@ private struct LogRow: View {
 // MARK: - Server Row
 
 struct ServerRowView: View {
+    @Environment(\.palette) private var palette
     let server: VPNServer
     let hasPassword: Bool
     let onEdit: () -> Void
@@ -632,11 +694,11 @@ struct ServerRowView: View {
         HStack(spacing: 12) {
             Image(systemName: server.iconName)
                 .font(.system(size: 15))
-                .foregroundColor(.accentColor)
+                .foregroundColor(palette.accent)
                 .frame(width: 32, height: 32)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.accentColor.opacity(0.12))
+                        .fill(palette.accent.opacity(0.12))
                 )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -653,10 +715,10 @@ struct ServerRowView: View {
             if !hasPassword {
                 Text("No password")
                     .font(.caption2.weight(.medium))
-                    .foregroundColor(.orange)
+                    .foregroundColor(palette.warning)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.orange.opacity(0.15)))
+                    .background(Capsule().fill(palette.warning.opacity(0.15)))
             }
 
             Button(action: onEdit) {
@@ -667,7 +729,7 @@ struct ServerRowView: View {
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
-                    .foregroundColor(.red.opacity(0.7))
+                    .foregroundColor(palette.bad.opacity(0.7))
             }
             .buttonStyle(.borderless)
             .help("Delete Server")
@@ -696,6 +758,7 @@ struct ServerEditView: View {
     let server: VPNServer?
 
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var themeManager = ThemeManager.shared
 
     @State private var name: String = ""
     @State private var host: String = ""
@@ -714,70 +777,76 @@ struct ServerEditView: View {
     @State private var validationError: String?
 
     var isEditing: Bool { server != nil }
+    private var palette: Palette { themeManager.theme.palette }
 
     var body: some View {
         VStack(spacing: 0) {
             // LocalizedStringKey on both sides: a ternary of plain literals is not translated
             Text(isEditing ? LocalizedStringKey("Edit Server") : LocalizedStringKey("Add Server"))
-                .font(.headline)
-                .padding(.top, 16)
-                .padding(.bottom, 4)
+                .font(.system(size: 15, weight: .semibold))
+                .padding(.top, 18)
+                .padding(.bottom, 2)
 
             Form {
-                Section {
-                    TextField("Name", text: $name)
-                    TextField("Host", text: $host, prompt: Text(verbatim: "vpn.example.com"))
-                    TextField("Port", text: $port)
-                    if !singleSignOn {
-                        TextField("Username", text: $username)
-                        // The saved password is never loaded into the field
-                        SecureField("Password", text: $password,
-                                    prompt: hasSavedPassword ? Text("Saved · leave empty to keep") : nil)
+                // One call colors the rows of every section
+                Group {
+                    Section {
+                        TextField("Name", text: $name)
+                        TextField("Host", text: $host, prompt: Text(verbatim: "vpn.example.com"))
+                        TextField("Port", text: $port)
+                        if !singleSignOn {
+                            TextField("Username", text: $username)
+                            // The saved password is never loaded into the field
+                            SecureField("Password", text: $password,
+                                        prompt: hasSavedPassword ? Text("Saved · leave empty to keep") : nil)
+                        }
+                        LabeledContent("Icon") {
+                            iconPicker
+                        }
                     }
-                    LabeledContent("Icon") {
-                        iconPicker
-                    }
-                }
 
-                // Options most servers never need: closed until asked for
-                Section {
-                    if showAdvanced {
-                        TextField("Certificate", text: $trustedCert, prompt: Text("optional"))
-                        TextField("Realm", text: $realm, prompt: Text("optional"))
-                        Picker("One-time code", selection: $alwaysAskCode) {
-                            Text("Phone approval when available").tag(false)
-                            Text("Ask when connecting").tag(true)
-                        }
-                        Picker("Minimum TLS", selection: $minTLS) {
-                            Text("System default").tag("")
-                            ForEach(VPNServer.tlsChoices, id: \.self) { version in
-                                Text(verbatim: "TLS \(version)").tag(version)
+                    // Options most servers never need: closed until asked for
+                    Section {
+                        if showAdvanced {
+                            TextField("Certificate", text: $trustedCert, prompt: Text("optional"))
+                            TextField("Realm", text: $realm, prompt: Text("optional"))
+                            Picker("One-time code", selection: $alwaysAskCode) {
+                                Text("Phone approval when available").tag(false)
+                                Text("Ask when connecting").tag(true)
                             }
+                            Picker("Minimum TLS", selection: $minTLS) {
+                                Text("System default").tag("")
+                                ForEach(VPNServer.tlsChoices, id: \.self) { version in
+                                    Text(verbatim: "TLS \(version)").tag(version)
+                                }
+                            }
+                            Toggle("Single sign-on (SAML)", isOn: $singleSignOn)
                         }
-                        Toggle("Single sign-on (SAML)", isOn: $singleSignOn)
-                    }
-                } header: {
-                    Button {
-                        showAdvanced.toggle()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .frame(width: 12)
-                            Text("Advanced")
+                    } header: {
+                        Button {
+                            showAdvanced.toggle()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .frame(width: 12)
+                                Text("Advanced")
+                            }
+                            .contentShape(Rectangle())
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .listRowBackground(palette.row)
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
             .scrollDisabled(true)
 
             if let error = validationError {
                 Text(verbatim: error)
                     .font(.caption)
-                    .foregroundColor(.red)
+                    .foregroundColor(palette.bad)
                     .padding(.horizontal)
             }
 
@@ -799,9 +868,14 @@ struct ServerEditView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(name.isEmpty || host.isEmpty || (username.isEmpty && !singleSignOn))
             }
-            .padding()
+            .controlSize(.large)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 18)
         }
+        // One background from the title to the buttons, with the groups standing out on it
+        .background(palette.backgroundColor ?? Color(NSColor.textBackgroundColor))
         .frame(width: 440, height: sheetHeight)
+        .themed(.custom)
         .onAppear {
             if let server = server {
                 name = server.name
@@ -841,10 +915,10 @@ struct ServerEditView: View {
                 } label: {
                     Image(systemName: choice)
                         .frame(width: 28, height: 24)
-                        .foregroundColor(icon == choice ? .accentColor : .secondary)
+                        .foregroundColor(icon == choice ? palette.accent : .secondary)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(icon == choice ? Color.accentColor.opacity(0.15) : Color.clear)
+                                .fill(icon == choice ? palette.accent.opacity(0.15) : Color.clear)
                         )
                         .contentShape(Rectangle())
                 }
@@ -955,6 +1029,15 @@ class SettingsViewModel: ObservableObject {
             }
         }
     }
+    /// Language for the next launch
+    @Published var language = AppLanguage.selected {
+        didSet {
+            if oldValue != language {
+                AppLanguage.selected = language
+            }
+        }
+    }
+    var languageNeedsRestart: Bool { language != AppLanguage.running }
     @Published var checkForUpdates: Bool = true {
         didSet {
             if oldValue != checkForUpdates {

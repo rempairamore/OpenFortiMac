@@ -7,4 +7,5 @@ extension Notification.Name {
     static let showSettingsTab = Notification.Name("showSettingsTab")
     static let openServerEditor = Notification.Name("openServerEditor")
     static let updateSettingsChanged = Notification.Name("updateSettingsChanged")
+    static let themeChanged = Notification.Name("themeChanged")
 }
