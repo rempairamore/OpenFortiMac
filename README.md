@@ -10,7 +10,7 @@ A native macOS menu bar app for managing [OpenFortiVPN](https://github.com/adrie
 - Light, Dark and Dracula themes
 - In English, with Italian as an option
 
-<img src="docs/assets/openfortimac-panel-demo.gif" width="356" alt="Click the OpenFortiMac shield in the menu bar, then Connect on a server: the shield fills up while connecting and turns green, and the panel shows the tunnel's IP address and traffic">
+<img src="docs/assets/openfortimac-panel-demo.gif" width="356" alt="Click the OpenFortiMac shield in the menu bar, then Connect on a server: an orange dot pulses on the shield while connecting, then the shield turns green and the panel shows the tunnel's IP address and traffic">
 
 <img src="docs/assets/openfortimac-themes.png" width="820" alt="The panel in the three themes: Light while it waits for a two-factor code, Dark while connected, Dracula with a notice about a VPN left running and one about an update">
 
@@ -125,8 +125,8 @@ Each server can have its own icon, chosen in the server editor.
 
 | Icon | Status |
 |------|--------|
-| Dimmed shield | Disconnected |
-| Shield filling up and emptying | Connecting / Disconnecting |
+| Shield with a small ring | Disconnected |
+| Shield with an orange dot that pulses | Connecting / Disconnecting |
 | Green shield with a check | Connected |
 
 The app sends native macOS notifications on connect, disconnect, and errors.

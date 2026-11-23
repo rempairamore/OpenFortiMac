@@ -203,7 +203,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             stopIconAnimation()
             button.image = StatusIcon.disconnected(description: String(localized: "Disconnected"))
         case .connecting, .disconnecting:
-            // The shield fills up and empties while the connection is set up or taken down
+            // The dot on the shield pulses while the connection is set up or taken down
             startIconAnimation()
         case .connected:
             stopIconAnimation()
@@ -217,8 +217,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         drawBusyIcon()
         let timer = Timer(timeInterval: 0.06, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            // One full cycle, there and back, every 1.8 seconds
-            self.iconPhase = (self.iconPhase + 0.06 / 1.8).truncatingRemainder(dividingBy: 1)
+            // The dot grows and shrinks once every 1.2 seconds
+            self.iconPhase = (self.iconPhase + 0.06 / 1.2).truncatingRemainder(dividingBy: 1)
             self.drawBusyIcon()
         }
         RunLoop.main.add(timer, forMode: .common)
